@@ -1,3 +1,5 @@
+use hyper::body::Buf;
+
 use crate::error::Error;
 
 pub trait RowBinary: hyper::body::Buf {
@@ -56,6 +58,14 @@ impl Column for String {
         let l = buf.read_leb128()?;
         let raw = buf.read_bytes(l as usize)?;
         Ok(String::from_utf8(raw.to_vec())?)
+    }
+}
+
+impl<const N: usize> Column for [u8; N] {
+    const TYPE: &'static str = "FixedString"; // FIXME
+    fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
+        let bytes = buf.read_bytes(N)?;
+        Ok((&*bytes)[0..N].try_into().unwrap())
     }
 }
 
