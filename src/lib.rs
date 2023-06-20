@@ -6,6 +6,8 @@ mod query;
 pub(crate) mod column;
 pub use column::{Column, Row};
 
+use streamhouse_derive::Row;
+
 pub struct Client {
     client: hyper::Client<hyper::client::HttpConnector>,
     url: String,
