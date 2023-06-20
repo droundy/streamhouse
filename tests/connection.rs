@@ -92,4 +92,32 @@ async fn create_table() {
             .await
             .unwrap()
     );
+
+    #[derive(streamhouse::Row, Eq, PartialEq, Debug)]
+    struct Row {
+        name: String,
+        favorite_color: String,
+        age: u8,
+    }
+
+    assert_eq!(
+        vec![
+            Row {
+                name: "David".to_string(),
+                favorite_color: "blue".to_string(),
+                age: 49
+            },
+            Row {
+                name: "Roundy".to_string(),
+                favorite_color: "blue".to_string(),
+                age: 49
+            },
+        ],
+        client
+            .query_fetch_all::<Row>(
+                "select name, favorite_color, age from test_create_table ORDER BY name"
+            )
+            .await
+            .unwrap()
+    );
 }
