@@ -85,4 +85,11 @@ async fn create_table() {
             .await
             .unwrap()
     );
+    assert_eq!(
+        vec![49u8, 49],
+        client
+            .query_fetch_all::<u8>("select age from test_create_table ORDER BY name")
+            .await
+            .unwrap()
+    );
 }
