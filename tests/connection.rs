@@ -23,7 +23,7 @@ async fn has_connection() {
     );
 
     assert_eq!(
-        r#"Column types mismatch: ["String"] vs ["UInt8"]"#,
+        r#"Column types mismatch: [String] vs [UInt8]"#,
         client
             .query_fetch_all::<u8>("select name from system.databases")
             .await

@@ -37,23 +37,23 @@ pub trait RowBinary: hyper::body::Buf {
 impl<B: hyper::body::Buf> RowBinary for B {}
 
 pub trait Column: Sized {
-    const TYPE: &'static str;
+    const TYPE: ColumnType;
     fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error>;
 }
 
 pub trait Row: Sized {
-    const TYPES: &'static [&'static str];
+    const TYPES: &'static [ColumnType];
     fn read(buf: &mut impl RowBinary) -> Result<Self, Error>;
 }
 impl<C: Column> Row for C {
-    const TYPES: &'static [&'static str] = &[Self::TYPE];
+    const TYPES: &'static [ColumnType] = &[Self::TYPE];
     fn read(buf: &mut impl RowBinary) -> Result<Self, Error> {
         Self::read_value(buf)
     }
 }
 
 impl Column for String {
-    const TYPE: &'static str = "String";
+    const TYPE: ColumnType = ColumnType::String;
     fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
         let l = buf.read_leb128()?;
         let raw = buf.read_bytes(l as usize)?;
@@ -61,8 +61,16 @@ impl Column for String {
     }
 }
 
+impl Column for Vec<u8> {
+    const TYPE: ColumnType = ColumnType::String;
+    fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
+        let l = buf.read_leb128()?;
+        Ok(buf.read_bytes(l as usize)?.to_vec())
+    }
+}
+
 impl<const N: usize> Column for [u8; N] {
-    const TYPE: &'static str = "FixedString"; // FIXME
+    const TYPE: ColumnType = ColumnType::FixedString(N); // FIXME
     fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
         let bytes = buf.read_bytes(N)?;
         Ok((&*bytes)[0..N].try_into().unwrap())
@@ -70,8 +78,37 @@ impl<const N: usize> Column for [u8; N] {
 }
 
 impl Column for u8 {
-    const TYPE: &'static str = "UInt8";
+    const TYPE: ColumnType = ColumnType::UInt8;
     fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
         buf.read_u8()
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum ColumnType {
+    UInt8,
+    String,
+    FixedString(usize),
+}
+
+impl ColumnType {
+    pub fn read(bytes: &[u8]) -> Result<Self, Error> {
+        match bytes {
+            b"UInt8" => Ok(Self::UInt8),
+            b"String" => Ok(Self::String),
+            _ => {
+                if bytes.starts_with(b"FixedString(") && bytes.last() == Some(&(')' as u8)) {
+                    let mut len = 0;
+                    for b in &bytes[b"FixedString(".len()..bytes.len() - 1] {
+                        len += (*b - '0' as u8) as usize;
+                    }
+                    Ok(Self::FixedString(len))
+                } else {
+                    Err(Error::UnsupportedColumn(
+                        String::from_utf8_lossy(bytes).into_owned(),
+                    ))
+                }
+            }
+        }
     }
 }

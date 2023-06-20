@@ -1,4 +1,4 @@
-use crate::column::RowBinary;
+use crate::column::{ColumnType, RowBinary};
 use crate::{Client, Error, Row};
 use hyper::header::CONTENT_LENGTH;
 
@@ -34,7 +34,7 @@ impl Client {
 
         let mut column_types = Vec::new();
         for _ in 0..num_columns {
-            column_types.push(String::read(&mut bytes)?);
+            column_types.push(ColumnType::read(&Vec::<u8>::read(&mut bytes)?)?);
         }
         if R::TYPES != &column_types {
             return Err(Error::WrongColumnTypes {

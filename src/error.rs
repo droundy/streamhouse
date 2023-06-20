@@ -1,5 +1,7 @@
 use std::error::Error as StdError;
 
+use crate::column::ColumnType;
+
 /// Represents all possible errors.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -21,10 +23,12 @@ pub enum Error {
     InvalidTagEncoding(usize),
     #[error("bad response: {0}")]
     BadResponse(String),
+    #[error("Unsupported column type: {0}")]
+    UnsupportedColumn(String),
     #[error("Column types mismatch: {schema:?} vs {row:?}")]
     WrongColumnTypes {
-        schema: Vec<String>,
-        row: &'static [&'static str],
+        schema: Vec<ColumnType>,
+        row: &'static [ColumnType],
     },
 
     // Internally handled errors, not part of public API.
