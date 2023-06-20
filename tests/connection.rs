@@ -31,3 +31,33 @@ async fn has_connection() {
             .to_string()
     );
 }
+
+#[named]
+#[tokio::test]
+async fn create_table() {
+    let client = common::prepare_database!();
+
+    assert!(client
+        .execute(
+            r"CREATE TABLE IF NOT EXI STS test_create_table (
+            name String,
+            favorite_color String,
+            age UInt8,
+       ) Engine=ReplacingMergeTree
+           ORDER BY (name, favorite_color);",
+        )
+        .await
+        .is_err());
+
+    client
+        .execute(
+            r"CREATE TABLE IF NOT EXISTS test_create_table (
+            name String,
+            favorite_color String,
+            age UInt8,
+       ) Engine=ReplacingMergeTree
+           ORDER BY (name, favorite_color);",
+        )
+        .await
+        .unwrap();
+}

@@ -13,7 +13,22 @@ pub(crate) mod _priv {
 
     pub async fn prepare_database(file_path: &str, fn_name: &str) -> Client {
         // let name = make_db_name(file_path, fn_name);
-        let client = Client::builder().with_url(format!("http://{HOST}"));
+        let mut client = Client::builder().with_url(format!("http://{HOST}"));
+        let file_path = &file_path[..file_path.len() - 3];
+        let file_path = file_path.replace("tests/", "");
+        let database = format!("{file_path}__{fn_name}");
+
+        println!("Database is {database}");
+
+        let temp = client.clone().build();
+        temp.execute(&format!(r"DROP DATABASE IF EXISTS {database}"))
+            .await
+            .unwrap();
+        temp.execute(&format!(r"CREATE DATABASE {database}"))
+            .await
+            .unwrap();
+
+        client = client.with_database(database);
         client.build()
     }
 }

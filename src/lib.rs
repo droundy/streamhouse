@@ -11,6 +11,7 @@ pub struct Client {
     url: String,
     user: Option<String>,
     password: Option<String>,
+    database: Option<String>,
 }
 
 impl Client {
@@ -19,12 +20,13 @@ impl Client {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ClientBuilder {
     client: hyper::client::Builder,
     url: Option<String>,
     user: Option<String>,
     password: Option<String>,
+    database: Option<String>,
 }
 
 impl ClientBuilder {
@@ -46,12 +48,19 @@ impl ClientBuilder {
             ..self
         }
     }
+    pub fn with_database(self, database: impl Into<String>) -> Self {
+        ClientBuilder {
+            database: Some(database.into()),
+            ..self
+        }
+    }
     pub fn build(self) -> Client {
         Client {
             client: self.client.build_http(),
             url: self.url.expect("Need to specify url for Client"),
             user: self.user,
             password: self.password,
+            database: self.database,
         }
     }
 }
