@@ -17,7 +17,7 @@ async fn has_connection() {
     assert_eq!(
         rows,
         client
-            .query_fetch_all::<String>("select name from system.databases")
+            .query_fetch_all::<String>("select name from system.tables")
             .await
             .unwrap()
     );
@@ -25,7 +25,7 @@ async fn has_connection() {
     assert_eq!(
         r#"Column types mismatch: [String] vs [UInt8]"#,
         client
-            .query_fetch_all::<u8>("select name from system.databases")
+            .query_fetch_all::<u8>("select name from system.tables")
             .await
             .unwrap_err()
             .to_string()
