@@ -59,4 +59,30 @@ async fn create_table() {
         )
         .await
         .unwrap();
+
+    client
+        .execute(r"INSERT INTO test_create_table VALUES ('David', 'blue', 49)")
+        .await
+        .unwrap();
+
+    assert_eq!(
+        vec!["David"],
+        client
+            .query_fetch_all::<String>("select name from test_create_table ORDER BY name")
+            .await
+            .unwrap()
+    );
+
+    client
+        .execute(r"INSERT INTO test_create_table VALUES ('Roundy', 'blue', 49)")
+        .await
+        .unwrap();
+
+    assert_eq!(
+        vec!["David", "Roundy"],
+        client
+            .query_fetch_all::<String>("select name from test_create_table ORDER BY name")
+            .await
+            .unwrap()
+    );
 }
