@@ -7,17 +7,14 @@ use function_name::named;
 async fn has_connection() {
     let client = common::prepare_database!();
 
-    let rows = vec![
-        "INFORMATION_SCHEMA",
-        "default",
-        "information_schema",
-        "system",
-    ];
+    let rows = vec!["COLUMNS", "SCHEMATA", "TABLES", "VIEWS"];
 
     assert_eq!(
         rows,
         client
-            .query_fetch_all::<String>("select name from system.tables")
+            .query_fetch_all::<String>(
+                "select name from system.tables where database = 'INFORMATION_SCHEMA' ORDER BY name"
+            )
             .await
             .unwrap()
     );
@@ -25,7 +22,9 @@ async fn has_connection() {
     assert_eq!(
         r#"Column types mismatch: [String] vs [UInt8]"#,
         client
-            .query_fetch_all::<u8>("select name from system.tables")
+            .query_fetch_all::<u8>(
+                "select name from system.tables where database = 'INFORMATION_SCHEMA' ORDER BY name"
+            )
             .await
             .unwrap_err()
             .to_string()
