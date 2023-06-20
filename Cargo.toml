@@ -13,3 +13,9 @@ streamhouse-derive = { path = "streamhouse-derive" }
 [dev-dependencies]
 function_name = "0.3.0"
 tokio = { version = "1.28.2", features = ["rt", "macros"]}
+
+[workspace]
+
+members = [
+    "streamhouse-derive",
+]
