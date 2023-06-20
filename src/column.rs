@@ -70,7 +70,7 @@ impl Column for Vec<u8> {
 }
 
 impl<const N: usize> Column for [u8; N] {
-    const TYPE: ColumnType = ColumnType::FixedString(N); // FIXME
+    const TYPE: ColumnType = ColumnType::FixedString(N);
     fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
         let bytes = buf.read_bytes(N)?;
         Ok((&*bytes)[0..N].try_into().unwrap())
