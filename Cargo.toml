@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 hyper = {version = "0.14.26", features = ["client", "http2", "http1", "tcp"]}
 thiserror = "1.0.40"
-streamhouse-derive = { path = "streamhouse-derive" }
+# streamhouse-derive = { path = "streamhouse-derive" }
 
 [dev-dependencies]
 function_name = "0.3.0"
@@ -16,6 +16,6 @@ tokio = { version = "1.28.2", features = ["rt", "macros"]}
 
 [workspace]
 
-members = [
-    "streamhouse-derive",
-]
+# members = [
+#    "streamhouse-derive",
+# ]

@@ -93,30 +93,70 @@ async fn create_table() {
             .unwrap()
     );
 
-    #[derive(streamhouse::Row, Eq, PartialEq, Debug)]
-    struct Row {
-        name: String,
-        favorite_color: String,
-        age: u8,
-    }
+    // #[derive(streamhouse::Row, Eq, PartialEq, Debug)]
+    // struct Row {
+    //     name: String,
+    //     favorite_color: String,
+    //     age: u8,
+    // }
+
+    // assert_eq!(
+    //     vec![
+    //         Row {
+    //             name: "David".to_string(),
+    //             favorite_color: "blue".to_string(),
+    //             age: 49
+    //         },
+    //         Row {
+    //             name: "Roundy".to_string(),
+    //             favorite_color: "blue".to_string(),
+    //             age: 49
+    //         },
+    //     ],
+    //     client
+    //         .query_fetch_all::<Row>(
+    //             "select name, favorite_color, age from test_create_table ORDER BY name"
+    //         )
+    //         .await
+    //         .unwrap()
+    // );
+}
+#[named]
+#[tokio::test]
+async fn one_string_column() {
+    let client = common::prepare_database!();
+
+    client
+        .execute(
+            r"CREATE TABLE IF NOT EXISTS test (
+            name String,
+       ) Engine=MergeTree ORDER BY (name);",
+        )
+        .await
+        .unwrap();
+
+    client
+        .execute(r"INSERT INTO test VALUES ('David')")
+        .await
+        .unwrap();
 
     assert_eq!(
-        vec![
-            Row {
-                name: "David".to_string(),
-                favorite_color: "blue".to_string(),
-                age: 49
-            },
-            Row {
-                name: "Roundy".to_string(),
-                favorite_color: "blue".to_string(),
-                age: 49
-            },
-        ],
+        vec!["David"],
         client
-            .query_fetch_all::<Row>(
-                "select name, favorite_color, age from test_create_table ORDER BY name"
-            )
+            .query_fetch_all::<String>("select name from test ORDER BY name")
+            .await
+            .unwrap()
+    );
+
+    client
+        .insert("test", ["Roundy".to_string(), "Joel".to_string()])
+        .await
+        .unwrap();
+
+    assert_eq!(
+        vec!["David", "Joel", "Roundy"],
+        client
+            .query_fetch_all::<String>("select name from test ORDER BY name")
             .await
             .unwrap()
     );

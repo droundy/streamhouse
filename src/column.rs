@@ -2,6 +2,26 @@ use hyper::body::Buf;
 
 use crate::error::Error;
 
+pub trait WriteRowBinary {
+    fn write_u8(&mut self, value: u8) -> Result<(), Error>;
+    fn write_leb128(&mut self, mut value: u64) -> Result<(), Error> {
+        loop {
+            if value < 128 {
+                self.write_u8(value as u8)?;
+                return Ok(());
+            } else {
+                self.write_u8(value as u8)?;
+                value = value >> 7;
+            }
+        }
+    }
+}
+impl WriteRowBinary for Vec<u8> {
+    fn write_u8(&mut self, value: u8) -> Result<(), Error> {
+        self.push(value);
+        Ok(())
+    }
+}
 pub trait RowBinary: hyper::body::Buf {
     fn done(&self) -> bool {
         !self.has_remaining()
@@ -39,16 +59,21 @@ impl<B: hyper::body::Buf> RowBinary for B {}
 pub trait Column: Sized {
     const TYPE: ColumnType;
     fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error>;
+    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error>;
 }
 
 pub trait Row: Sized {
     const TYPES: &'static [ColumnType];
     fn read(buf: &mut impl RowBinary) -> Result<Self, Error>;
+    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error>;
 }
 impl<C: Column> Row for C {
     const TYPES: &'static [ColumnType] = &[Self::TYPE];
     fn read(buf: &mut impl RowBinary) -> Result<Self, Error> {
         Self::read_value(buf)
+    }
+    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        self.write_value(buf)
     }
 }
 
@@ -59,6 +84,13 @@ impl Column for String {
         let raw = buf.read_bytes(l as usize)?;
         Ok(String::from_utf8(raw.to_vec())?)
     }
+    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        buf.write_leb128(self.len() as u64)?;
+        for b in self.as_bytes() {
+            buf.write_u8(*b)?;
+        }
+        Ok(())
+    }
 }
 
 impl Column for Vec<u8> {
@@ -66,6 +98,13 @@ impl Column for Vec<u8> {
     fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
         let l = buf.read_leb128()?;
         Ok(buf.read_bytes(l as usize)?.to_vec())
+    }
+    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        buf.write_leb128(self.len() as u64)?;
+        for b in self {
+            buf.write_u8(*b)?;
+        }
+        Ok(())
     }
 }
 
@@ -75,12 +114,21 @@ impl<const N: usize> Column for [u8; N] {
         let bytes = buf.read_bytes(N)?;
         Ok((&*bytes)[0..N].try_into().unwrap())
     }
+    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        for b in self {
+            buf.write_u8(*b)?;
+        }
+        Ok(())
+    }
 }
 
 impl Column for u8 {
     const TYPE: ColumnType = ColumnType::UInt8;
     fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
         buf.read_u8()
+    }
+    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        buf.write_u8(*self)
     }
 }
 

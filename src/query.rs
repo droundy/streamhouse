@@ -1,6 +1,5 @@
-use crate::column::{ColumnType, RowBinary};
+use crate::column::{ColumnType, RowBinary, WriteRowBinary};
 use crate::{Client, Error, Row};
-use hyper::body::Buf;
 use hyper::header::CONTENT_LENGTH;
 
 impl Client {
@@ -53,11 +52,37 @@ impl Client {
         if response.status() != hyper::StatusCode::OK {
             return Err(Error::from_bad_response(response).await);
         }
-        let body = response.into_body();
-        let mut bytes = hyper::body::aggregate(body).await?;
-        let bytes = bytes.read_bytes(bytes.remaining())?.to_vec();
-        let msg = String::from_utf8_lossy(&bytes);
-        println!("got msg {msg}");
+        Ok(())
+    }
+
+    pub async fn insert<R: Row>(
+        &self,
+        table: &str,
+        rows: impl IntoIterator<Item = R>,
+    ) -> Result<(), Error> {
+        let builder = self.request_builder();
+        let mut body_bytes =
+            format!("INSERT INTO {table} FORMAT RowBinaryWithNamesAndTypes\n").into_bytes();
+        println!("I am storing {} types", R::TYPES.len());
+        body_bytes.write_leb128(R::TYPES.len() as u64)?;
+        // FIXME SHOULD USE THE ACTUAL FIELD NAMES
+        b"name".to_vec().write(&mut body_bytes)?;
+        for t in R::TYPES {
+            format!("{t:?}").write(&mut body_bytes)?;
+        }
+        for r in rows {
+            r.write(&mut body_bytes)?;
+        }
+        println!("bytes are: {body_bytes:?}");
+        println!("in text bytes are {}", String::from_utf8_lossy(&body_bytes));
+
+        let request = builder
+            .body(hyper::Body::from(body_bytes))
+            .map_err(|err| Error::InvalidParams(Box::new(err)))?;
+        let response = self.client.request(request).await.map_err(Error::from)?;
+        if response.status() != hyper::StatusCode::OK {
+            return Err(Error::from_bad_response(response).await);
+        }
         Ok(())
     }
 
