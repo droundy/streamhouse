@@ -1,6 +1,7 @@
 mod common;
 
 use function_name::named;
+use streamhouse_derive::Row;
 
 #[named]
 #[tokio::test]
@@ -93,33 +94,33 @@ async fn create_table() {
             .unwrap()
     );
 
-    // #[derive(streamhouse::Row, Eq, PartialEq, Debug)]
-    // struct Row {
-    //     name: String,
-    //     favorite_color: String,
-    //     age: u8,
-    // }
+    #[derive(Row, Eq, PartialEq, Debug)]
+    struct ThisRow {
+        name: String,
+        favorite_color: String,
+        age: u8,
+    }
 
-    // assert_eq!(
-    //     vec![
-    //         Row {
-    //             name: "David".to_string(),
-    //             favorite_color: "blue".to_string(),
-    //             age: 49
-    //         },
-    //         Row {
-    //             name: "Roundy".to_string(),
-    //             favorite_color: "blue".to_string(),
-    //             age: 49
-    //         },
-    //     ],
-    //     client
-    //         .query_fetch_all::<Row>(
-    //             "select name, favorite_color, age from test_create_table ORDER BY name"
-    //         )
-    //         .await
-    //         .unwrap()
-    // );
+    assert_eq!(
+        vec![
+            ThisRow {
+                name: "David".to_string(),
+                favorite_color: "blue".to_string(),
+                age: 49
+            },
+            ThisRow {
+                name: "Roundy".to_string(),
+                favorite_color: "blue".to_string(),
+                age: 49
+            },
+        ],
+        client
+            .query_fetch_all::<ThisRow>(
+                "select name, favorite_color, age from test_create_table ORDER BY name"
+            )
+            .await
+            .unwrap()
+    );
 }
 #[named]
 #[tokio::test]

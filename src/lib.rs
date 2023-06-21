@@ -4,9 +4,9 @@ pub use error::Error;
 mod query;
 
 pub(crate) mod column;
-pub use column::{Column, Row};
+pub use column::{Column, ColumnType, Row, RowBinary, WriteRowBinary};
 
-// use streamhouse_derive::Row;
+pub use streamhouse_derive::Row;
 
 pub struct Client {
     client: hyper::Client<hyper::client::HttpConnector>,
