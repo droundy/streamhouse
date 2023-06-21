@@ -87,15 +87,13 @@ impl Client {
     }
 
     fn request_builder(&self) -> hyper::http::request::Builder {
-        let mut url = self.url.clone();
-        if let Some(database) = &self.database {
-            url = format!("{url}?database={database}");
-        }
-
         let mut builder = hyper::Request::builder()
             .method(hyper::Method::POST)
-            .uri(url);
+            .uri(self.url.as_str());
 
+        if let Some(database) = &self.database {
+            builder = builder.header("X-ClickHouse-Database", database);
+        }
         if let Some(user) = &self.user {
             builder = builder.header("X-ClickHouse-User", user);
         }
