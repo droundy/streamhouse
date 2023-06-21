@@ -132,9 +132,57 @@ impl Column for u8 {
     }
 }
 
+impl Column for u16 {
+    const TYPE: ColumnType = ColumnType::UInt16;
+    fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
+        let x = <[u8; 2]>::read(buf)?;
+        Ok(u16::from_le_bytes(x))
+    }
+    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        self.to_le_bytes().write(buf)
+    }
+}
+
+impl Column for u32 {
+    const TYPE: ColumnType = ColumnType::UInt32;
+    fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
+        let x = <[u8; 4]>::read(buf)?;
+        Ok(Self::from_le_bytes(x))
+    }
+    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        self.to_le_bytes().write(buf)
+    }
+}
+
+impl Column for u64 {
+    const TYPE: ColumnType = ColumnType::UInt64;
+    fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
+        let x = <[u8; 8]>::read(buf)?;
+        Ok(Self::from_le_bytes(x))
+    }
+    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        self.to_le_bytes().write(buf)
+    }
+}
+
+impl Column for u128 {
+    const TYPE: ColumnType = ColumnType::UInt128;
+    fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
+        let x = <[u8; 16]>::read(buf)?;
+        Ok(Self::from_le_bytes(x))
+    }
+    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        self.to_le_bytes().write(buf)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ColumnType {
     UInt8,
+    UInt16,
+    UInt32,
+    UInt64,
+    UInt128,
     String,
     FixedString(usize),
 }
@@ -143,6 +191,10 @@ impl ColumnType {
     pub fn read(bytes: &[u8]) -> Result<Self, Error> {
         match bytes {
             b"UInt8" => Ok(Self::UInt8),
+            b"UInt16" => Ok(Self::UInt16),
+            b"UInt32" => Ok(Self::UInt32),
+            b"UInt64" => Ok(Self::UInt64),
+            b"UInt128" => Ok(Self::UInt128),
             b"String" => Ok(Self::String),
             _ => {
                 if bytes.starts_with(b"FixedString(") && bytes.last() == Some(&(')' as u8)) {
