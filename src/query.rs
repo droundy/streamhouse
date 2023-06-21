@@ -17,14 +17,10 @@ impl Client {
         }
         let body = response.into_body();
         let mut bytes = hyper::body::aggregate(body).await?;
-        let num_columns = bytes.read_leb128()?;
-        let mut column_names = Vec::new();
-        for _ in 0..num_columns {
-            column_names.push(String::read(&mut bytes)?);
-        }
+        let column_names = <Box<[String]>>::read(&mut bytes)?;
 
         let mut column_types = Vec::new();
-        for _ in 0..num_columns {
+        for _ in 0..column_names.len() {
             column_types.push(ColumnType::read(&Vec::<u8>::read(&mut bytes)?)?);
         }
         if R::TYPES != &column_types {
@@ -33,7 +29,7 @@ impl Client {
                 schema: column_types,
             });
         }
-        println!("We have {num_columns} columns: {column_names:?} of types {column_types:?}");
+        println!("We have columns: {column_names:?} of types {column_types:?}");
         let mut rows = Vec::new();
         while !bytes.done() {
             rows.push(R::read(&mut bytes)?);

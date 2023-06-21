@@ -176,7 +176,26 @@ impl Column for u128 {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+impl<T: Column> Column for Box<[T]> {
+    const TYPE: ColumnType = ColumnType::Array(&String::TYPE);
+    fn read_value(buf: &mut impl RowBinary) -> Result<Self, Error> {
+        let l = buf.read_leb128()?;
+        let mut out = Vec::new();
+        for _ in 0..l {
+            out.push(T::read(buf)?);
+        }
+        Ok(out.into_boxed_slice())
+    }
+    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        buf.write_leb128(self.len() as u64)?;
+        for v in self.iter() {
+            v.write(buf)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ColumnType {
     UInt8,
     UInt16,
@@ -185,6 +204,7 @@ pub enum ColumnType {
     UInt128,
     String,
     FixedString(usize),
+    Array(&'static ColumnType),
 }
 
 impl ColumnType {
