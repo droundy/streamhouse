@@ -29,7 +29,6 @@ impl Client {
                 schema: column_types,
             });
         }
-        println!("We have columns: {column_names:?} of types {column_types:?}");
         let mut rows = Vec::new();
         while !bytes.done() {
             rows.push(R::read(&mut bytes)?);
@@ -59,7 +58,6 @@ impl Client {
         let builder = self.request_builder();
         let mut body_bytes =
             format!("INSERT INTO {table} FORMAT RowBinaryWithNamesAndTypes\n").into_bytes();
-        println!("I am storing {} types", R::TYPES.len());
         body_bytes.write_leb128(R::TYPES.len() as u64)?;
         for n in R::NAMES {
             n.to_string().write(&mut body_bytes)?;
@@ -70,8 +68,6 @@ impl Client {
         for r in rows {
             r.write(&mut body_bytes)?;
         }
-        println!("bytes are: {body_bytes:?}");
-        println!("in text bytes are {}", String::from_utf8_lossy(&body_bytes));
 
         let request = builder
             .body(hyper::Body::from(body_bytes))
