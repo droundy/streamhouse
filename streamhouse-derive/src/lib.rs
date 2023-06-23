@@ -46,12 +46,14 @@ impl ToTokens for RowStruct {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let name = &self.name;
         let field_names = &self.field_names;
+        let field_name_strs = self.field_names.iter().map(|x| x.to_string()).collect::<Vec<_>>();
         let field_types = &self.field_types;
 
         tokens.extend(
             [quote! {
                 impl ::streamhouse::Row for #name {
                     const TYPES: &'static [::streamhouse::ColumnType] = &[#(<#field_types as ::streamhouse::Column>::TYPE, )*];
+                    const NAMES: &'static [&'static str] = &[#(#field_name_strs, )*];
                     fn read(buf: &mut impl ::streamhouse::RowBinary) -> Result<Self, ::streamhouse::Error> {
                         Ok(#name {
                             #(#field_names: <#field_types as ::streamhouse::Column>::read_value(buf)?),*

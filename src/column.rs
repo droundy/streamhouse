@@ -64,11 +64,13 @@ pub trait Column: Sized {
 
 pub trait Row: Sized {
     const TYPES: &'static [ColumnType];
+    const NAMES: &'static [&'static str];
     fn read(buf: &mut impl RowBinary) -> Result<Self, Error>;
     fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error>;
 }
 impl<C: Column> Row for C {
     const TYPES: &'static [ColumnType] = &[Self::TYPE];
+    const NAMES: &'static [&'static str] = &["name"];
     fn read(buf: &mut impl RowBinary) -> Result<Self, Error> {
         Self::read_value(buf)
     }

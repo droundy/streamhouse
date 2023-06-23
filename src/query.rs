@@ -61,8 +61,9 @@ impl Client {
             format!("INSERT INTO {table} FORMAT RowBinaryWithNamesAndTypes\n").into_bytes();
         println!("I am storing {} types", R::TYPES.len());
         body_bytes.write_leb128(R::TYPES.len() as u64)?;
-        // FIXME SHOULD USE THE ACTUAL FIELD NAMES
-        b"name".to_vec().write(&mut body_bytes)?;
+        for n in R::NAMES {
+            n.to_string().write(&mut body_bytes)?;
+        }
         for t in R::TYPES {
             format!("{t:?}").write(&mut body_bytes)?;
         }
