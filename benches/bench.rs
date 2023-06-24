@@ -70,54 +70,33 @@ use std::time::Instant;
 use function_name::named;
 use streamhouse_derive::Row;
 
-#[named]
-#[tokio::main]
-async fn main() {
-    let clients = common::prepare_database!();
+#[derive(Row, Eq, PartialEq, Debug, Clone, Copy, clickhouse::Row, serde::Deserialize)]
+struct AgeEarsWeightRow {
+    age: u64,
+    num_ears: u8,
+    weight: u64,
+}
 
-    clients.streamhouse[0]
-        .1
-        .execute(
-            r"CREATE TABLE IF NOT EXISTS test (
-                age UInt64,
-                num_ears UInt8,
-                weight UInt64,
-            ) Engine=MergeTree ORDER BY (age, num_ears, weight);",
-        )
-        .await
-        .unwrap();
-
-    #[derive(Row, Eq, PartialEq, Debug, Clone, Copy, clickhouse::Row, serde::Deserialize)]
-    struct ThisRow {
-        age: u64,
-        num_ears: u8,
-        weight: u64,
-    }
-    let mut rows = Vec::new();
-    const NUM_ROWS: u64 = 1_000_000;
-    for i in 0..NUM_ROWS {
-        rows.push(ThisRow {
-            age: (i * 137 + 13) % 100,
-            weight: (i * 73 + 130) % 137,
-            num_ears: i as u8,
-        })
-    }
-
-    clients.streamhouse[0]
-        .1
-        .insert("test", rows.iter().copied())
-        .await
-        .unwrap();
-
+async fn bench_age_ears_weight(clients: &ClickhouseClients) {
     let query = "select age, num_ears, weight from test";
 
     const NTESTS: usize = 3;
 
-    for (name, client) in clients.streamhouse {
+    // First run the query a few times to get everything into cache that will be in cache.
+    for _ in 0..NTESTS {
+        clients.clickhouse[0]
+            .1
+            .query(query)
+            .fetch_all::<AgeEarsWeightRow>()
+            .await
+            .unwrap();
+    }
+
+    for (name, client) in clients.streamhouse.iter() {
         for _ in 0..NTESTS {
             let start = Instant::now();
             let num_matching = client
-                .query_fetch_all::<ThisRow>(query)
+                .query_fetch_all::<AgeEarsWeightRow>(query)
                 .await
                 .unwrap()
                 .iter()
@@ -130,12 +109,12 @@ async fn main() {
         }
     }
 
-    for (name, client) in clients.clickhouse {
+    for (name, client) in clients.clickhouse.iter() {
         for _ in 0..NTESTS {
             let start = Instant::now();
             let num_matching = client
                 .query(query)
-                .fetch_all::<ThisRow>()
+                .fetch_all::<AgeEarsWeightRow>()
                 .await
                 .unwrap()
                 .iter()
@@ -148,7 +127,7 @@ async fn main() {
         }
     }
 
-    for (name, pool) in clients.clickhouse_rs {
+    for (name, pool) in clients.clickhouse_rs.iter() {
         for _ in 0..NTESTS {
             let start = Instant::now();
             let num_matching = pool
@@ -173,4 +152,67 @@ async fn main() {
             );
         }
     }
+}
+
+#[named]
+#[tokio::main]
+async fn main() {
+    let clients = common::prepare_database!();
+
+    clients.streamhouse[0]
+        .1
+        .execute(
+            r"CREATE TABLE IF NOT EXISTS test (
+                age UInt64,
+                num_ears UInt8,
+                weight UInt64,
+            ) Engine=MergeTree ORDER BY (age, num_ears, weight);",
+        )
+        .await
+        .unwrap();
+
+    let mut rows = Vec::new();
+    const NUM_ROWS: u64 = 10_000_000;
+    for i in 0..NUM_ROWS {
+        rows.push(AgeEarsWeightRow {
+            age: (i * 137 + 13) % 100,
+            weight: (i * 73 + 130) % 137,
+            num_ears: i as u8,
+        })
+    }
+
+    clients.streamhouse[0]
+        .1
+        .insert("test", rows.iter().copied())
+        .await
+        .unwrap();
+
+    println!("\n\n### Benchmarking with {NUM_ROWS} small values");
+    bench_age_ears_weight(&clients).await;
+
+    clients.streamhouse[0]
+        .1
+        .execute(r"TRUNCATE TABLE test;")
+        .await
+        .unwrap();
+
+    println!("\n\n### Benchmarking with empty table");
+    bench_age_ears_weight(&clients).await;
+
+    rows.clear();
+    for _ in 0..NUM_ROWS {
+        rows.push(AgeEarsWeightRow {
+            age: rand::random(),
+            weight: rand::random(),
+            num_ears: rand::random(),
+        })
+    }
+    clients.streamhouse[0]
+        .1
+        .insert("test", rows.iter().copied())
+        .await
+        .unwrap();
+
+    println!("\n\n### Benchmarking with {NUM_ROWS} fully random values");
+    bench_age_ears_weight(&clients).await;
 }
