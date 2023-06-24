@@ -54,10 +54,9 @@ impl ToTokens for RowStruct {
                 impl ::streamhouse::Row for #name {
                     const TYPES: &'static [::streamhouse::ColumnType] = &[#(<#field_types as ::streamhouse::Column>::TYPE, )*];
                     const NAMES: &'static [&'static str] = &[#(#field_name_strs, )*];
-                    fn read(buf: &mut impl ::streamhouse::RowBinary) -> Result<Self, ::streamhouse::Error> {
-                        Ok(#name {
-                            #(#field_names: <#field_types as ::streamhouse::Column>::read_value(buf)?),*
-                        })
+                    fn read(buf: &[u8]) -> Result<(Self, &[u8]), ::streamhouse::Error> {
+                        #(let (#field_names, buf) = <#field_types as ::streamhouse::Column>::read_value(buf)?;)*
+                        Ok((#name { #(#field_names),* }, buf))
                     }
                     
                 fn write(&self, buf: &mut impl ::streamhouse::WriteRowBinary) -> Result<(), ::streamhouse::Error> {

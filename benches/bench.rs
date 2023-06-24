@@ -139,6 +139,20 @@ async fn bench_age_ears_weight(clients: &ClickhouseClients) {
                 start.elapsed().as_secs_f64()
             );
         }
+        for _ in 0..NTESTS {
+            let start = Instant::now();
+            let mut rows = client.query(query).fetch::<AgeEarsWeightRow>().unwrap();
+            let mut num_matching = 0;
+            if let Some(r) = rows.next().await.unwrap() {
+                if r.age == r.weight && r.num_ears < r.age as u8 {
+                    num_matching += 1;
+                }
+            }
+            println!(
+                "{name} query().fetch().first took {} to find {num_matching}",
+                start.elapsed().as_secs_f64()
+            );
+        }
     }
 
     for (name, pool) in clients.clickhouse_rs.iter() {

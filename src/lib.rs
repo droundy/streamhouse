@@ -4,7 +4,7 @@ pub use error::Error;
 mod query;
 
 pub(crate) mod column;
-pub use column::{Column, ColumnType, Row, RowBinary, WriteRowBinary};
+pub use column::{Column, ColumnType, Row, WriteRowBinary};
 
 pub use streamhouse_derive::Row;
 

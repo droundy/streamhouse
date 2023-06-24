@@ -1,5 +1,5 @@
-use crate::column::{ColumnType, RowBinary, WriteRowBinary};
-use crate::{Client, Error, Row};
+use crate::column::{ColumnType, WriteRowBinary};
+use crate::{Client, Column, Error, Row};
 use hyper::header::CONTENT_LENGTH;
 
 impl Client {
@@ -16,12 +16,15 @@ impl Client {
             return Err(Error::from_bad_response(response).await);
         }
         let body = response.into_body();
-        let mut bytes = hyper::body::to_bytes(body).await?;
-        let column_names = <Box<[String]>>::read(&mut bytes)?;
+        let bytes = hyper::body::to_bytes(body).await?.to_vec();
+        let buf = bytes.as_slice();
+        let (column_names, mut buf) = <Box<[String]>>::read(buf)?;
 
         let mut column_types = Vec::new();
+        let mut type_bytes;
         for _ in 0..column_names.len() {
-            column_types.push(ColumnType::read(&Vec::<u8>::read(&mut bytes)?)?);
+            (type_bytes, buf) = Box::<[u8]>::read_value(buf)?;
+            column_types.push(ColumnType::parse(&type_bytes)?);
         }
         if R::TYPES != &column_types {
             return Err(Error::WrongColumnTypes {
@@ -30,8 +33,10 @@ impl Client {
             });
         }
         let mut rows = Vec::new();
-        while !bytes.done() {
-            rows.push(R::read(&mut bytes)?);
+        let mut row;
+        while !buf.is_empty() {
+            (row, buf) = R::read(buf)?;
+            rows.push(row);
         }
 
         Ok(rows)
