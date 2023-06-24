@@ -12,9 +12,13 @@ mod common {
         const HOST: &str = "localhost:8124";
         use streamhouse::Client;
 
-        pub async fn prepare_database(file_path: &str, fn_name: &str) -> Client {
+        pub async fn prepare_database(
+            file_path: &str,
+            fn_name: &str,
+        ) -> (Client, clickhouse::Client) {
             // let name = make_db_name(file_path, fn_name);
-            let mut client = Client::builder().with_url(format!("http://{HOST}"));
+            let url = format!("http://{HOST}");
+            let mut client = Client::builder().with_url(&url);
             let file_path = &file_path[..file_path.len() - 3];
             let file_path = file_path.replace("/", "_");
             let database = format!("{file_path}__{fn_name}");
@@ -29,8 +33,12 @@ mod common {
                 .await
                 .unwrap();
 
-            client = client.with_database(database);
-            client.build()
+            let clickhouse_client = clickhouse::Client::default()
+                .with_url(&url)
+                .with_database(&database);
+
+            client = client.with_database(&database);
+            (client.build(), clickhouse_client)
         }
     }
 }
@@ -43,7 +51,7 @@ use streamhouse_derive::Row;
 #[named]
 #[tokio::main]
 async fn main() {
-    let client = common::prepare_database!();
+    let (client, clickhouse_client) = common::prepare_database!();
 
     client
         .execute(
@@ -56,7 +64,7 @@ async fn main() {
         .await
         .unwrap();
 
-    #[derive(Row, Eq, PartialEq, Debug, Clone, Copy)]
+    #[derive(Row, Eq, PartialEq, Debug, Clone, Copy, clickhouse::Row, serde::Deserialize)]
     struct ThisRow {
         age: u64,
         num_ears: u8,
@@ -75,16 +83,37 @@ async fn main() {
     client.insert("test", rows.iter().copied()).await.unwrap();
 
     let query = "select age, num_ears, weight from test";
-    let start = Instant::now();
-    let num_matching = client
-        .query_fetch_all::<ThisRow>(query)
-        .await
-        .unwrap()
-        .iter()
-        .filter(|r| r.age == r.weight && r.num_ears < r.age as u8)
-        .count();
-    println!(
-        "query_fetch_all took {} to find {num_matching}",
-        start.elapsed().as_secs_f64()
-    );
+
+    const NTESTS: usize = 3;
+
+    for _ in 0..NTESTS {
+        let start = Instant::now();
+        let num_matching = client
+            .query_fetch_all::<ThisRow>(query)
+            .await
+            .unwrap()
+            .iter()
+            .filter(|r| r.age == r.weight && r.num_ears < r.age as u8)
+            .count();
+        println!(
+            "query_fetch_all took {} to find {num_matching}",
+            start.elapsed().as_secs_f64()
+        );
+    }
+
+    for _ in 0..NTESTS {
+        let start = Instant::now();
+        let num_matching = clickhouse_client
+            .query(query)
+            .fetch_all::<ThisRow>()
+            .await
+            .unwrap()
+            .iter()
+            .filter(|r| r.age == r.weight && r.num_ears < r.age as u8)
+            .count();
+        println!(
+            "clickhouse query().fetch_all() took {} to find {num_matching}",
+            start.elapsed().as_secs_f64()
+        );
+    }
 }
