@@ -9,16 +9,16 @@ mod common {
 
     pub(crate) use {::function_name::named, prepare_database};
     pub(crate) mod _priv {
-        const HOST: &str = "localhost:8124";
+        const HTTP_URL: &str = "http://localhost:8124";
+        const TCP_URL: &str = "tcp://localhost:9001";
         use streamhouse::Client;
 
         pub async fn prepare_database(
             file_path: &str,
             fn_name: &str,
-        ) -> (Client, clickhouse::Client) {
+        ) -> (Client, clickhouse::Client, clickhouse_rs::Pool) {
             // let name = make_db_name(file_path, fn_name);
-            let url = format!("http://{HOST}");
-            let mut client = Client::builder().with_url(&url);
+            let mut client = Client::builder().with_url(HTTP_URL);
             let file_path = &file_path[..file_path.len() - 3];
             let file_path = file_path.replace("/", "_");
             let database = format!("{file_path}__{fn_name}");
@@ -34,11 +34,20 @@ mod common {
                 .unwrap();
 
             let clickhouse_client = clickhouse::Client::default()
-                .with_url(&url)
+                .with_url(HTTP_URL)
                 .with_database(&database);
 
+            let mut opts = clickhouse_rs::Options::new(TCP_URL.parse::<url::Url>().unwrap());
+            opts = opts.database(&database);
+            // opts = opts.with_compression();
+            // let clickhouse_client = clickhouse_client.with_compression(clickhouse::Compression::Lz4);
+
             client = client.with_database(&database);
-            (client.build(), clickhouse_client)
+            (
+                client.build(),
+                clickhouse_client,
+                clickhouse_rs::Pool::new(opts),
+            )
         }
     }
 }
@@ -51,7 +60,7 @@ use streamhouse_derive::Row;
 #[named]
 #[tokio::main]
 async fn main() {
-    let (client, clickhouse_client) = common::prepare_database!();
+    let (client, clickhouse_client, pool) = common::prepare_database!();
 
     client
         .execute(
@@ -113,6 +122,30 @@ async fn main() {
             .count();
         println!(
             "clickhouse query().fetch_all() took {} to find {num_matching}",
+            start.elapsed().as_secs_f64()
+        );
+    }
+
+    for _ in 0..NTESTS {
+        let start = Instant::now();
+        let num_matching = pool
+            .get_handle()
+            .await
+            .unwrap()
+            .query(query)
+            .fetch_all()
+            .await
+            .unwrap()
+            .rows()
+            .filter(|r| {
+                let age = r.get::<u64, _>("age").unwrap();
+                let weight = r.get::<u64, _>("weight").unwrap();
+                let num_ears = r.get::<u8, _>("num_ears").unwrap();
+                age == weight && num_ears < age as u8
+            })
+            .count();
+        println!(
+            "clickhouse_rs query().fetch_all() took {} to find {num_matching}",
             start.elapsed().as_secs_f64()
         );
     }
