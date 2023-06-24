@@ -16,7 +16,7 @@ impl Client {
             return Err(Error::from_bad_response(response).await);
         }
         let body = response.into_body();
-        let mut bytes = hyper::body::aggregate(body).await?;
+        let mut bytes = hyper::body::to_bytes(body).await?;
         let column_names = <Box<[String]>>::read(&mut bytes)?;
 
         let mut column_types = Vec::new();
