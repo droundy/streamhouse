@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hyper = {version = "0.14.26", features = ["client", "http2", "http1", "tcp"]}
+hyper = {version = "0.14.26", features = ["client", "http2", "http1", "tcp", "stream"]}
 thiserror = "1.0.40"
 streamhouse-derive = { path = "streamhouse-derive" }
 futures-util = "0.3.28"
