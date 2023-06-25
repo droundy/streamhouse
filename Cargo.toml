@@ -9,6 +9,7 @@ edition = "2021"
 hyper = {version = "0.14.26", features = ["client", "http2", "http1", "tcp"]}
 thiserror = "1.0.40"
 streamhouse-derive = { path = "streamhouse-derive" }
+futures-util = "0.3.28"
 
 [dev-dependencies]
 function_name = "0.3.0"

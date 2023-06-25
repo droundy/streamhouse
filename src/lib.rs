@@ -2,6 +2,7 @@ mod error;
 pub use error::Error;
 
 mod query;
+mod stream;
 
 pub(crate) mod column;
 pub use column::{Column, ColumnType, Row, WriteRowBinary};

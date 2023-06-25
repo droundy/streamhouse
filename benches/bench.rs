@@ -1,3 +1,5 @@
+use futures_util::stream::{StreamExt, TryStreamExt};
+
 pub struct ClickhouseClients {
     pub streamhouse: Vec<(&'static str, streamhouse::Client)>,
     pub clickhouse: Vec<(&'static str, clickhouse::Client)>,
@@ -104,6 +106,37 @@ async fn bench_age_ears_weight(clients: &ClickhouseClients) {
                 .count();
             println!(
                 "{name} query_fetch_all took {} to find {num_matching}",
+                start.elapsed().as_secs_f64()
+            );
+        }
+        for _ in 0..NTESTS {
+            let start = Instant::now();
+            let num_matching = client
+                .query::<AgeEarsWeightRow>(query)
+                .await
+                .unwrap()
+                .try_filter(|r| {
+                    let v = r.age == r.weight && r.num_ears < r.age as u8;
+                    async move { v }
+                })
+                .count()
+                .await;
+            println!(
+                "{name} query took {} to find {num_matching}",
+                start.elapsed().as_secs_f64()
+            );
+        }
+        for _ in 0..NTESTS {
+            let start = Instant::now();
+            let mut rows = client.query::<AgeEarsWeightRow>(query).await.unwrap();
+            let mut num_matching = 0;
+            if let Some(r) = rows.try_next().await.unwrap() {
+                if r.age == r.weight && r.num_ears < r.age as u8 {
+                    num_matching += 1;
+                }
+            }
+            println!(
+                "{name} query first took {} to find {num_matching}",
                 start.elapsed().as_secs_f64()
             );
         }
