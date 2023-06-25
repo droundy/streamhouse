@@ -36,15 +36,15 @@ impl ToTokens for ColumnStruct {
 
         tokens.extend(
             [quote! {
-                impl ::streamhouse::Column for #name {
-                    const TYPE: ::streamhouse::ColumnType = <#typename as ::streamhouse::Column>::TYPE;
-                    fn read_value(buf: &[u8]) -> Result<(Self, &[u8]), ::streamhouse::Error> {
-                        let (value, buf) = <#typename as ::streamhouse::Column>::read_value(buf)?;
+                impl streamhouse::Column for #name {
+                    const TYPE: streamhouse::ColumnType = <#typename as streamhouse::Column>::TYPE;
+                    fn read_value(buf: &[u8]) -> Result<(Self, &[u8]), streamhouse::Error> {
+                        let (value, buf) = <#typename as streamhouse::Column>::read_value(buf)?;
                         Ok((#name(value), buf))
                     }
                     
-                    fn write_value(&self, buf: &mut impl ::streamhouse::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
-                        use ::streamhouse::Column;
+                    fn write_value(&self, buf: &mut impl streamhouse::WriteRowBinary) -> Result<(), streamhouse::Error> {
+                        use streamhouse::Column;
                         self.0.write_value(buf)?;
                         Ok(())                    
                     }

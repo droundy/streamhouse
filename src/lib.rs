@@ -1,8 +1,11 @@
+extern crate self as streamhouse;
+
 mod error;
 pub use error::Error;
 
 mod query;
 mod stream;
+pub mod types;
 
 pub(crate) mod column;
 pub use column::{Column, ColumnType, Row, WriteRowBinary};

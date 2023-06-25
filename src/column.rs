@@ -205,6 +205,7 @@ pub enum ColumnType {
     String,
     FixedString(usize),
     Array(&'static ColumnType),
+    DateTime,
 }
 
 impl ColumnType {
@@ -216,6 +217,7 @@ impl ColumnType {
             b"UInt64" => Ok(Self::UInt64),
             b"UInt128" => Ok(Self::UInt128),
             b"String" => Ok(Self::String),
+            b"DateTime" => Ok(Self::DateTime),
             _ => {
                 if bytes.starts_with(b"FixedString(") && bytes.last() == Some(&(')' as u8)) {
                     let mut len = 0;
