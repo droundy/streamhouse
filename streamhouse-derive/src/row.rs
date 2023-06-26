@@ -1,6 +1,6 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{ Data, DataStruct, Fields, Type};
+use syn::{Data, DataStruct, Fields, Type};
 
 pub(crate) struct RowStruct {
     name: Ident,
@@ -32,7 +32,11 @@ impl ToTokens for RowStruct {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let name = &self.name;
         let field_names = &self.field_names;
-        let field_name_strs = self.field_names.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+        let field_name_strs = self
+            .field_names
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<_>>();
         let field_types = &self.field_types;
 
         tokens.extend(
@@ -44,11 +48,11 @@ impl ToTokens for RowStruct {
                         #(let (#field_names, buf) = <#field_types as ::streamhouse::Column>::read_value(buf)?;)*
                         Ok((#name { #(#field_names),* }, buf))
                     }
-                    
+
                 fn write(&self, buf: &mut impl ::streamhouse::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
                     use ::streamhouse::Column;
                     #(self.#field_names.write_value(buf)?;)*
-                    Ok(())                    
+                    Ok(())
                 }
                 }
             }]
@@ -56,4 +60,3 @@ impl ToTokens for RowStruct {
         );
     }
 }
-

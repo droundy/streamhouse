@@ -1,6 +1,6 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{ Data, DataStruct, Fields, Type};
+use syn::{Data, DataStruct, Fields, Type};
 
 pub(crate) struct ColumnStruct {
     name: Ident,
@@ -15,7 +15,11 @@ impl ColumnStruct {
             syn::Data::Struct(DataStruct {
                 fields: Fields::Unnamed(fields),
                 ..
-            }) => fields.unnamed.iter().map(|f| f.ty.clone()).collect::<Vec<_>>(),
+            }) => fields
+                .unnamed
+                .iter()
+                .map(|f| f.ty.clone())
+                .collect::<Vec<_>>(),
             _ => panic!("Column supports only newtype struct"),
         };
         if fields.len() != 1 {
@@ -42,11 +46,11 @@ impl ToTokens for ColumnStruct {
                         let (value, buf) = <#typename as streamhouse::Column>::read_value(buf)?;
                         Ok((#name(value), buf))
                     }
-                    
+
                     fn write_value(&self, buf: &mut impl streamhouse::WriteRowBinary) -> Result<(), streamhouse::Error> {
                         use streamhouse::Column;
                         self.0.write_value(buf)?;
-                        Ok(())                    
+                        Ok(())
                     }
                 }
             }]
@@ -54,4 +58,3 @@ impl ToTokens for ColumnStruct {
         );
     }
 }
-
