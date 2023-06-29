@@ -7,8 +7,8 @@ mod query;
 mod stream;
 pub mod types;
 
-pub(crate) mod column;
-pub use column::{Column, ColumnType, Row, WriteRowBinary};
+pub(crate) mod row;
+pub use row::{AColumn, Column, ColumnType, Row, WriteRowBinary};
 
 pub use streamhouse_derive::Row;
 

@@ -1,6 +1,6 @@
 use std::error::Error as StdError;
 
-use crate::column::ColumnType;
+use crate::row::ColumnType;
 
 /// Represents all possible errors.
 #[derive(Debug, thiserror::Error)]
@@ -28,7 +28,7 @@ pub enum Error {
     #[error("Column types mismatch: {schema:?} vs {row:?}")]
     WrongColumnTypes {
         schema: Vec<ColumnType>,
-        row: &'static [ColumnType],
+        row: Vec<ColumnType>,
     },
 
     // Internally handled errors, not part of public API.

@@ -1,4 +1,4 @@
-use crate::column::WriteRowBinary;
+use crate::row::WriteRowBinary;
 use crate::stream::Stream;
 use crate::{Client, Error, Row};
 use futures_util::TryStreamExt;
@@ -49,11 +49,12 @@ impl Client {
         let builder = self.request_builder();
         let mut body_bytes =
             format!("INSERT INTO {table} FORMAT RowBinaryWithNamesAndTypes\n").into_bytes();
-        body_bytes.write_leb128(R::TYPES.len() as u64)?;
-        for n in R::NAMES {
+        let columns = R::columns("");
+        body_bytes.write_leb128(columns.len() as u64)?;
+        for n in columns.iter().map(|c| c.name) {
             n.to_string().write(&mut body_bytes)?;
         }
-        for t in R::TYPES {
+        for t in columns.iter().map(|c| c.column_type) {
             format!("{t:?}").write(&mut body_bytes)?;
         }
         for r in rows {

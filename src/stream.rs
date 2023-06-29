@@ -88,9 +88,13 @@ impl<R: Row> Stream<R> {
             let s: Vec<u8> = self.read().await?;
             column_types.push(ColumnType::parse(&s)?);
         }
-        if R::TYPES != &column_types {
+        let types = R::columns("")
+            .iter()
+            .map(|c| *c.column_type)
+            .collect::<Vec<_>>();
+        if &types != &column_types {
             return Err(Error::WrongColumnTypes {
-                row: R::TYPES,
+                row: types,
                 schema: column_types,
             });
         }
