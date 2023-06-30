@@ -1,6 +1,7 @@
+use crate::AColumn;
 use crate::ColumnType;
 
-use crate::Column;
+use crate::Row;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub struct DateTime(u32);
@@ -16,13 +17,18 @@ impl DateTime {
     }
 }
 
-impl Column for DateTime {
-    const TYPE: ColumnType = ColumnType::DateTime;
-    fn read_value(buf: &[u8]) -> Result<(Self, &[u8]), crate::Error> {
-        let (v, buf) = u32::read_value(buf)?;
+impl Row for DateTime {
+    fn columns(name: &'static str) -> Vec<AColumn> {
+        vec![AColumn {
+            name,
+            column_type: &ColumnType::DateTime,
+        }]
+    }
+    fn read(buf: &[u8]) -> Result<(Self, &[u8]), crate::Error> {
+        let (v, buf) = u32::read(buf)?;
         Ok((DateTime(v), buf))
     }
-    fn write_value(&self, buf: &mut impl crate::WriteRowBinary) -> Result<(), crate::Error> {
-        self.0.write_value(buf)
+    fn write(&self, buf: &mut impl crate::WriteRowBinary) -> Result<(), crate::Error> {
+        self.0.write(buf)
     }
 }

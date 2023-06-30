@@ -51,12 +51,6 @@ fn read_leb128(mut buf: &[u8]) -> Result<(u64, &[u8]), Error> {
     }
 }
 
-pub trait Column: Sized {
-    const TYPE: ColumnType;
-    fn read_value(buf: &[u8]) -> Result<(Self, &[u8]), Error>;
-    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error>;
-}
-
 /// FIXME rename this to `Column`.
 pub struct AColumn {
     pub(crate) name: &'static str,
@@ -72,17 +66,6 @@ pub trait Row: Sized {
 
     fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error>;
     fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error>;
-}
-impl<C: Column> Row for C {
-    fn columns(_parent: &'static str) -> Vec<AColumn> {
-        unimplemented!()
-    }
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
-        Self::read_value(buf)
-    }
-    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
-        self.write_value(buf)
-    }
 }
 
 impl Row for String {
@@ -146,56 +129,81 @@ impl<const N: usize> Row for [u8; N] {
     }
 }
 
-impl Column for u8 {
-    const TYPE: ColumnType = ColumnType::UInt8;
-    fn read_value(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
+impl Row for u8 {
+    fn columns(name: &'static str) -> Vec<AColumn> {
+        vec![AColumn {
+            name,
+            column_type: &ColumnType::UInt8,
+        }]
+    }
+    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
         read_u8(buf)
     }
-    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
         buf.write_u8(*self)
     }
 }
 
-impl Column for u16 {
-    const TYPE: ColumnType = ColumnType::UInt16;
-    fn read_value(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
+impl Row for u16 {
+    fn columns(name: &'static str) -> Vec<AColumn> {
+        vec![AColumn {
+            name,
+            column_type: &ColumnType::UInt16,
+        }]
+    }
+    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (x, buf) = <[u8; 2]>::read(buf)?;
         Ok((Self::from_le_bytes(x), buf))
     }
-    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
         self.to_le_bytes().write(buf)
     }
 }
 
-impl Column for u32 {
-    const TYPE: ColumnType = ColumnType::UInt32;
-    fn read_value(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
+impl Row for u32 {
+    fn columns(name: &'static str) -> Vec<AColumn> {
+        vec![AColumn {
+            name,
+            column_type: &ColumnType::UInt32,
+        }]
+    }
+    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (x, buf) = <[u8; 4]>::read(buf)?;
         Ok((Self::from_le_bytes(x), buf))
     }
-    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
         self.to_le_bytes().write(buf)
     }
 }
 
-impl Column for u64 {
-    const TYPE: ColumnType = ColumnType::UInt64;
-    fn read_value(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
+impl Row for u64 {
+    fn columns(name: &'static str) -> Vec<AColumn> {
+        vec![AColumn {
+            name,
+            column_type: &ColumnType::UInt64,
+        }]
+    }
+    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (x, buf) = <[u8; 8]>::read(buf)?;
         Ok((Self::from_le_bytes(x), buf))
     }
-    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
         self.to_le_bytes().write(buf)
     }
 }
 
-impl Column for u128 {
-    const TYPE: ColumnType = ColumnType::UInt128;
-    fn read_value(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
+impl Row for u128 {
+    fn columns(name: &'static str) -> Vec<AColumn> {
+        vec![AColumn {
+            name,
+            column_type: &ColumnType::UInt128,
+        }]
+    }
+    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
         let (x, buf) = <[u8; 16]>::read(buf)?;
         Ok((Self::from_le_bytes(x), buf))
     }
-    fn write_value(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
         self.to_le_bytes().write(buf)
     }
 }

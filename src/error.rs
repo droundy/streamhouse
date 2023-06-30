@@ -30,6 +30,11 @@ pub enum Error {
         schema: Vec<ColumnType>,
         row: Vec<ColumnType>,
     },
+    #[error("Column names mismatch: {schema:?} vs {row:?}")]
+    WrongColumnNames {
+        schema: Vec<&'static str>,
+        row: Box<[String]>,
+    },
 
     // Internally handled errors, not part of public API.
     // XXX: move to another error?

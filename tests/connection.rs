@@ -149,8 +149,22 @@ async fn one_string_column() {
             .unwrap()
     );
 
+    #[derive(Row)]
+    struct Name {
+        name: String,
+    }
     client
-        .insert("test", ["Roundy".to_string(), "Joel".to_string()])
+        .insert(
+            "test",
+            [
+                Name {
+                    name: "Roundy".to_string(),
+                },
+                Name {
+                    name: "Joel".to_string(),
+                },
+            ],
+        )
         .await
         .unwrap();
 

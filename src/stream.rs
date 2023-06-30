@@ -82,6 +82,21 @@ impl<R: Row> Stream<R> {
 
     async fn check_header(&mut self) -> Result<(), Error> {
         let column_names: Box<[String]> = self.read().await?;
+        let correct_column_names = R::columns("").iter().map(|c| c.name).collect::<Vec<_>>();
+        let single_column_query =
+            correct_column_names.len() == 1 && correct_column_names[0].is_empty();
+        if column_names.len() != correct_column_names.len()
+            || (!single_column_query
+                && correct_column_names
+                    .iter()
+                    .zip(column_names.iter())
+                    .any(|(a, b)| a != b))
+        {
+            return Err(Error::WrongColumnNames {
+                row: column_names,
+                schema: correct_column_names,
+            });
+        }
 
         let mut column_types: Vec<ColumnType> = Vec::new();
         for _ in 0..column_names.len() {
