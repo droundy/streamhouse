@@ -8,10 +8,21 @@ mod stream;
 pub mod types;
 
 pub(crate) mod row;
-pub use row::{Bytes, Column, ColumnType, Row, WriteRowBinary};
+pub use row::Row;
+pub(crate) use row::{Column, ColumnType, WriteRowBinary};
 
+/// Types that are used internally in `#[derive(Row)]`
+pub mod internal {
+    pub use crate::row::{Bytes, Column, ColumnType, WriteRowBinary};
+}
+
+/// Derive macro for the [`Row`] trait
 pub use streamhouse_derive::Row;
 
+/// A client for accessing clickhouse.
+///
+/// Note that cloning the `Client` is reasonably inexpensive, and internally it
+/// stores a connection pool.
 pub struct Client {
     client: hyper::Client<hyper::client::HttpConnector>,
     url: String,
@@ -26,6 +37,7 @@ impl Client {
     }
 }
 
+/// A builder which is the only way to construct a [`Client`].
 #[derive(Default, Clone)]
 pub struct ClientBuilder {
     client: hyper::client::Builder,

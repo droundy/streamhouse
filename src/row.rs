@@ -81,14 +81,21 @@ pub struct Column {
     pub(crate) column_type: &'static ColumnType,
 }
 
+/// A type that is *either* a column type *or* a full clickhouse row.
+///
+/// Row types are composable, so a row is typically composed of a sequence of
+/// rows.
 pub trait Row: Sized {
     /// The set of columns in this row.
     ///
-    /// The parent is the name of this row, if it has a name, which is useful
-    /// for rows that are "primitive" column types.
+    /// The `parent` is the name of this row, if it has a name, which is used in
+    /// the derive macro.  If there is no name, then `parent` should be the
+    /// empty string.
     fn columns(parent: &'static str) -> Vec<Column>;
 
+    /// Read this row from a buffer.
     fn read(buf: &mut Bytes) -> Result<Self, Error>;
+    /// Write this row (for insertion into clickhouse).
     fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error>;
 }
 

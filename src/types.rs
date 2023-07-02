@@ -1,3 +1,5 @@
+//! Wrappers for clickhouse column types
+
 use crate::Column;
 use crate::ColumnType;
 

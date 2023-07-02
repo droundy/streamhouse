@@ -60,16 +60,16 @@ impl ToTokens for RowStruct {
                 tokens.extend(
                     [quote! {
                         impl ::streamhouse::Row for #name {
-                            fn columns(_parent: &'static str) -> Vec<::streamhouse::Column> {
+                            fn columns(_parent: &'static str) -> Vec<::streamhouse::internal::Column> {
                                 let mut out = Vec::new();
                                 #(out.extend(<#field_types as ::streamhouse::Row>::columns(#field_name_strs));)*
                                 out
                             }
-                            fn read(buf: &mut ::streamhouse::Bytes) -> Result<Self, ::streamhouse::Error> {
+                            fn read(buf: &mut ::streamhouse::internal::Bytes) -> Result<Self, ::streamhouse::Error> {
                                 #(let #field_names = buf.read()?;)*
                                 Ok(#name { #(#field_names),* })
                             }
-                            fn write(&self, buf: &mut impl ::streamhouse::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
+                            fn write(&self, buf: &mut impl ::streamhouse::internal::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
                                 use ::streamhouse::Row;
                                 #(self.#field_names.write(buf)?;)*
                                 Ok(())
@@ -83,13 +83,13 @@ impl ToTokens for RowStruct {
                 tokens.extend(
                     [quote! {
                         impl ::streamhouse::Row for #name {
-                            fn columns(parent: &'static str) -> Vec<::streamhouse::Column> {
+                            fn columns(parent: &'static str) -> Vec<::streamhouse::internal::Column> {
                                 <#field_type as ::streamhouse::Row>::columns(parent)
                             }
-                            fn read(buf: &mut ::streamhouse::Bytes) -> Result<Self, ::streamhouse::Error> {
+                            fn read(buf: &mut ::streamhouse::internal::Bytes) -> Result<Self, ::streamhouse::Error> {
                                 Ok(#name ( buf.read()? ))
                             }
-                            fn write(&self, buf: &mut impl ::streamhouse::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
+                            fn write(&self, buf: &mut impl ::streamhouse::internal::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
                                 ::streamhouse::Row::write(&self.0, buf)
                             }
                         }
