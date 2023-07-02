@@ -35,6 +35,8 @@ pub enum Error {
         schema: Vec<&'static str>,
         row: Box<[String]>,
     },
+    #[error("Each column must have a name: {row:?}")]
+    MissingColumnName { row: Vec<&'static str> },
 
     // Internally handled errors, not part of public API.
     // XXX: move to another error?

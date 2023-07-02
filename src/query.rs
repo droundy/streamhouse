@@ -52,6 +52,11 @@ impl Client {
         let columns = R::columns("");
         body_bytes.write_leb128(columns.len() as u64)?;
         for n in columns.iter().map(|c| c.name) {
+            if n.is_empty() {
+                return Err(Error::MissingColumnName {
+                    row: columns.into_iter().map(|c| c.name).collect(),
+                });
+            }
             n.to_string().write(&mut body_bytes)?;
         }
         for t in columns.iter().map(|c| c.column_type) {

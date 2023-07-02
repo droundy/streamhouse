@@ -8,24 +8,38 @@ pub(crate) enum RowStruct {
         field_names: Vec<Ident>,
         field_types: Vec<Type>,
     },
+    Unnamed {
+        name: Ident,
+        field_type: Type,
+    },
 }
 
 impl RowStruct {
     pub fn parse(name: &Ident, data: &Data) -> Self {
         let name = name.clone();
 
-        let fields = match data {
+        match data {
             syn::Data::Struct(DataStruct {
                 fields: Fields::Named(fields),
                 ..
-            }) => fields,
-            _ => panic!("Row supports only named struct"),
-        };
-
-        RowStruct::Named {
-            name,
-            field_names: fields.named.iter().flat_map(|f| f.ident.clone()).collect(),
-            field_types: fields.named.iter().map(|f| f.ty.clone()).collect(),
+            }) => RowStruct::Named {
+                name,
+                field_names: fields.named.iter().flat_map(|f| f.ident.clone()).collect(),
+                field_types: fields.named.iter().map(|f| f.ty.clone()).collect(),
+            },
+            syn::Data::Struct(DataStruct {
+                fields: Fields::Unnamed(fields),
+                ..
+            }) => {
+                if fields.unnamed.len() != 1 {
+                    panic!("Row can only support a single unnamed field");
+                }
+                RowStruct::Unnamed {
+                    name,
+                    field_type: fields.unnamed.first().unwrap().ty.clone(),
+                }
+            }
+            _ => panic!("Row cannot support unit structs"),
         }
     }
 }
@@ -33,36 +47,56 @@ impl RowStruct {
 impl ToTokens for RowStruct {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            RowStruct::Named { name, field_names, field_types } => {
+            RowStruct::Named {
+                name,
+                field_names,
+                field_types,
+            } => {
                 let field_name_strs = field_names
                     .iter()
                     .map(|x| x.to_string())
                     .collect::<Vec<_>>();
-        
+
                 tokens.extend(
                     [quote! {
                         impl ::streamhouse::Row for #name {
-                            fn columns(parent: &'static str) -> Vec<::streamhouse::AColumn> {
+                            fn columns(_parent: &'static str) -> Vec<::streamhouse::AColumn> {
                                 let mut out = Vec::new();
                                 #(out.extend(<#field_types as ::streamhouse::Row>::columns(#field_name_strs));)*
                                 out
                             }
-        
                             fn read(buf: &[u8]) -> Result<(Self, &[u8]), ::streamhouse::Error> {
                                 #(let (#field_names, buf) = <#field_types as ::streamhouse::Row>::read(buf)?;)*
                                 Ok((#name { #(#field_names),* }, buf))
                             }
-        
-                        fn write(&self, buf: &mut impl ::streamhouse::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
-                            use ::streamhouse::Row;
-                            #(self.#field_names.write(buf)?;)*
-                            Ok(())
-                        }
+                            fn write(&self, buf: &mut impl ::streamhouse::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
+                                use ::streamhouse::Row;
+                                #(self.#field_names.write(buf)?;)*
+                                Ok(())
+                            }
                         }
                     }]
                     .into_iter(),
                 );
-        
+            }
+            RowStruct::Unnamed { name, field_type } => {
+                tokens.extend(
+                    [quote! {
+                        impl ::streamhouse::Row for #name {
+                            fn columns(parent: &'static str) -> Vec<::streamhouse::AColumn> {
+                                <#field_type as ::streamhouse::Row>::columns(parent)
+                            }
+                            fn read(buf: &[u8]) -> Result<(Self, &[u8]), ::streamhouse::Error> {
+                                let (inner, buf) = <#field_type as ::streamhouse::Row>::read(buf)?;
+                                Ok((#name ( inner ), buf))
+                            }
+                            fn write(&self, buf: &mut impl ::streamhouse::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
+                                ::streamhouse::Row::write(&self.0, buf)
+                            }
+                        }
+                    }]
+                    .into_iter(),
+                );
             }
         }
     }
