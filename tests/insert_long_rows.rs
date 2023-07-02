@@ -26,7 +26,7 @@ async fn insert_long() {
         weight: u64,
     }
     let mut rows = Vec::new();
-    const NUM_ROWS: u64 = 1; // 10_000;
+    const NUM_ROWS: u64 = 10_000;
     for i in 0..NUM_ROWS {
         rows.push(ThisRow {
             age: (i * 137 + 13) % 100,

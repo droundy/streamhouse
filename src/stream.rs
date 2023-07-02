@@ -38,10 +38,10 @@ impl<R: Row> Stream<R> {
                 }
                 Err(Error::NotEnoughData) => {
                     if let Some(more_bytes) = self.body.try_next().await? {
-                        self.bytes = if buf.buf.is_empty() {
+                        let buf = &self.bytes[self.cursor..];
+                        self.bytes = if buf.is_empty() {
                             more_bytes.to_vec()
                         } else {
-                            let buf = &self.bytes[self.cursor..];
                             let mut b = Vec::with_capacity(buf.len() + more_bytes.len());
                             b.extend(buf);
                             b.extend(more_bytes);
