@@ -197,6 +197,13 @@ row_via_array!(u16, ColumnType::UInt16);
 row_via_array!(u32, ColumnType::UInt32);
 row_via_array!(u64, ColumnType::UInt64);
 row_via_array!(u128, ColumnType::UInt128);
+
+row_via_array!(i8, ColumnType::Int8);
+row_via_array!(i16, ColumnType::Int16);
+row_via_array!(i32, ColumnType::Int32);
+row_via_array!(i64, ColumnType::Int64);
+row_via_array!(i128, ColumnType::Int128);
+
 row_via_array!(f32, ColumnType::Float32);
 row_via_array!(f64, ColumnType::Float64);
 
@@ -236,6 +243,11 @@ pub enum ColumnType {
     UInt32,
     UInt64,
     UInt128,
+    Int8,
+    Int16,
+    Int32,
+    Int64,
+    Int128,
     Float32,
     Float64,
     String,
@@ -252,6 +264,13 @@ impl ColumnType {
             b"UInt32" => Ok(Self::UInt32),
             b"UInt64" => Ok(Self::UInt64),
             b"UInt128" => Ok(Self::UInt128),
+
+            b"Int8" => Ok(Self::Int8),
+            b"Int16" => Ok(Self::Int16),
+            b"Int32" => Ok(Self::Int32),
+            b"Int64" => Ok(Self::Int64),
+            b"Int128" => Ok(Self::Int128),
+
             b"Float32" => Ok(Self::Float32),
             b"Float64" => Ok(Self::Float64),
             b"String" => Ok(Self::String),
