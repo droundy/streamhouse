@@ -2,8 +2,15 @@
 name = "streamhouse"
 version = "0.0.1"
 edition = "2021"
+authors = ["David Roundy <daveroundy@gmail.com>"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "A strongly typed client for clickhouse"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/droundy/streamhouse"
+
+readme = "README.md"
+categories = ["caching", "memory-management", "concurrency"]
+keywords = ["clickhouse", "database", "driver", "hyper", "tokio"]
 
 [dependencies]
 hyper = {version = "0.14.26", features = ["client", "http2", "http1", "tcp", "stream"]}
