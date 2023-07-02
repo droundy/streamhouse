@@ -18,6 +18,7 @@ async fn fetch_all() {
             u32 UInt32,
             u64 UInt64,
             u128 UInt128,
+            fixed FixedString(8),
        ) Engine=MergeTree
            ORDER BY (f32);",
         )
@@ -33,6 +34,7 @@ async fn fetch_all() {
         u32: u32,
         u64: u64,
         u128: u128,
+        fixed: [u8; 8],
     }
     let rows = vec![AllTypes {
         f32: 137.0,
@@ -42,6 +44,7 @@ async fn fetch_all() {
         u32: 3,
         u64: 123456,
         u128: 1 << 123 + 2,
+        fixed: [b'a'; 8],
     }];
 
     client.insert("test", rows.clone()).await.unwrap();
