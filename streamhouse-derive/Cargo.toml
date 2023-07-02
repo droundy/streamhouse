@@ -8,7 +8,6 @@ description = "The derive macro crate for streamhouse"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/droundy/streamhouse"
 
-readme = "README.md"
 categories = ["caching", "memory-management", "concurrency"]
 keywords = ["clickhouse", "database", "driver", "hyper", "tokio"]
 
