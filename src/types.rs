@@ -9,6 +9,7 @@ use crate::{Error, Row};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord)]
 pub enum ColumnType {
+    Bool,
     UInt8,
     UInt16,
     UInt32,
@@ -34,6 +35,8 @@ pub enum ColumnType {
 impl ColumnType {
     pub fn parse(bytes: &[u8]) -> Result<&'static Self, Error> {
         match bytes {
+            b"Bool" => Ok(&Self::Bool),
+
             b"UInt8" => Ok(&Self::UInt8),
             b"UInt16" => Ok(&Self::UInt16),
             b"UInt32" => Ok(&Self::UInt32),

@@ -32,6 +32,7 @@ async fn fetch_all() {
             uuid UUID,
             string_list Array(String),
             u8_list Array(UInt8),
+            bool Bool,
        ) Engine=MergeTree
            ORDER BY (f32);",
         )
@@ -61,6 +62,7 @@ async fn fetch_all() {
         uuid: streamhouse::types::Uuid,
         string_list: Box<[String]>,
         u8_list: Box<[u8]>,
+        bool: bool,
     }
     let rows = vec![AllTypes {
         f32: 137.0,
@@ -91,6 +93,7 @@ async fn fetch_all() {
         u8_list: b"A very nice set by bytes! \0\0\0"
             .to_vec()
             .into_boxed_slice(),
+        bool: true,
     }];
 
     client.insert("test", rows.clone()).await.unwrap();

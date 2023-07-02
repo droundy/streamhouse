@@ -180,6 +180,21 @@ impl Row for u8 {
     }
 }
 
+impl Row for bool {
+    fn columns(name: &'static str) -> Vec<Column> {
+        vec![Column {
+            name,
+            column_type: &ColumnType::Bool,
+        }]
+    }
+    fn read(buf: &mut Bytes) -> Result<Self, Error> {
+        Ok(buf.read_u8()? != 0)
+    }
+    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        buf.write_u8(*self as u8)
+    }
+}
+
 macro_rules! row_via_array {
     ($t:ty, $clickhouse_type:expr) => {
         impl Row for $t {
