@@ -60,7 +60,7 @@ impl ToTokens for RowStruct {
                 tokens.extend(
                     [quote! {
                         impl ::streamhouse::Row for #name {
-                            fn columns(_parent: &'static str) -> Vec<::streamhouse::AColumn> {
+                            fn columns(_parent: &'static str) -> Vec<::streamhouse::Column> {
                                 let mut out = Vec::new();
                                 #(out.extend(<#field_types as ::streamhouse::Row>::columns(#field_name_strs));)*
                                 out
@@ -83,7 +83,7 @@ impl ToTokens for RowStruct {
                 tokens.extend(
                     [quote! {
                         impl ::streamhouse::Row for #name {
-                            fn columns(parent: &'static str) -> Vec<::streamhouse::AColumn> {
+                            fn columns(parent: &'static str) -> Vec<::streamhouse::Column> {
                                 <#field_type as ::streamhouse::Row>::columns(parent)
                             }
                             fn read(buf: &mut ::streamhouse::Bytes) -> Result<Self, ::streamhouse::Error> {

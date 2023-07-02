@@ -1,4 +1,4 @@
-use crate::AColumn;
+use crate::Column;
 use crate::ColumnType;
 
 use crate::Row;
@@ -18,8 +18,8 @@ impl DateTime {
 }
 
 impl Row for DateTime {
-    fn columns(name: &'static str) -> Vec<AColumn> {
-        vec![AColumn {
+    fn columns(name: &'static str) -> Vec<Column> {
+        vec![Column {
             name,
             column_type: &ColumnType::DateTime,
         }]

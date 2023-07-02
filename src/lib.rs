@@ -8,7 +8,7 @@ mod stream;
 pub mod types;
 
 pub(crate) mod row;
-pub use row::{AColumn, Bytes, ColumnType, Row, WriteRowBinary};
+pub use row::{Bytes, Column, ColumnType, Row, WriteRowBinary};
 
 pub use streamhouse_derive::Row;
 

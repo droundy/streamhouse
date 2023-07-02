@@ -74,7 +74,7 @@ impl<'a> Bytes<'a> {
 }
 
 /// FIXME rename this to `Column`.
-pub struct AColumn {
+pub struct Column {
     pub(crate) name: &'static str,
     pub(crate) column_type: &'static ColumnType,
 }
@@ -84,15 +84,15 @@ pub trait Row: Sized {
     ///
     /// The parent is the name of this row, if it has a name, which is useful
     /// for rows that are "primitive" column types.
-    fn columns(parent: &'static str) -> Vec<AColumn>;
+    fn columns(parent: &'static str) -> Vec<Column>;
 
     fn read(buf: &mut Bytes) -> Result<Self, Error>;
     fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error>;
 }
 
 impl Row for String {
-    fn columns(name: &'static str) -> Vec<AColumn> {
-        vec![AColumn {
+    fn columns(name: &'static str) -> Vec<Column> {
+        vec![Column {
             name,
             column_type: &ColumnType::String,
         }]
@@ -112,8 +112,8 @@ impl Row for String {
 }
 
 impl Row for Vec<u8> {
-    fn columns(name: &'static str) -> Vec<AColumn> {
-        vec![AColumn {
+    fn columns(name: &'static str) -> Vec<Column> {
+        vec![Column {
             name,
             column_type: &ColumnType::String,
         }]
@@ -133,8 +133,8 @@ impl Row for Vec<u8> {
 }
 
 impl<const N: usize> Row for [u8; N] {
-    fn columns(name: &'static str) -> Vec<AColumn> {
-        vec![AColumn {
+    fn columns(name: &'static str) -> Vec<Column> {
+        vec![Column {
             name,
             column_type: &ColumnType::FixedString(N),
         }]
@@ -151,8 +151,8 @@ impl<const N: usize> Row for [u8; N] {
 }
 
 impl Row for u8 {
-    fn columns(name: &'static str) -> Vec<AColumn> {
-        vec![AColumn {
+    fn columns(name: &'static str) -> Vec<Column> {
+        vec![Column {
             name,
             column_type: &ColumnType::UInt8,
         }]
@@ -168,8 +168,8 @@ impl Row for u8 {
 macro_rules! row_via_array {
     ($t:ty, $clickhouse_type:expr) => {
         impl Row for $t {
-            fn columns(name: &'static str) -> Vec<AColumn> {
-                vec![AColumn {
+            fn columns(name: &'static str) -> Vec<Column> {
+                vec![Column {
                     name,
                     column_type: &$clickhouse_type,
                 }]
@@ -190,7 +190,7 @@ row_via_array!(u64, ColumnType::UInt64);
 row_via_array!(u128, ColumnType::UInt128);
 
 impl<T: Row> Row for Box<[T]> {
-    fn columns(name: &'static str) -> Vec<AColumn> {
+    fn columns(name: &'static str) -> Vec<Column> {
         let c = T::columns(name);
         if c.len() != 1 {
             panic!("Arrays must have a primitive type, should enforce at compile time with sealed trait FIXME");
@@ -199,7 +199,7 @@ impl<T: Row> Row for Box<[T]> {
             ColumnType::String => &ColumnType::Array(&ColumnType::String),
             _ => panic!("Arrays must have a primitive type, should enforce at compile time with sealed trait FIXME"),
         };
-        vec![AColumn { name, column_type }]
+        vec![Column { name, column_type }]
     }
     fn read(buf: &mut Bytes) -> Result<Self, Error> {
         let l = buf.read_leb128()?;
