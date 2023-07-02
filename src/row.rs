@@ -197,6 +197,8 @@ row_via_array!(u16, ColumnType::UInt16);
 row_via_array!(u32, ColumnType::UInt32);
 row_via_array!(u64, ColumnType::UInt64);
 row_via_array!(u128, ColumnType::UInt128);
+row_via_array!(f32, ColumnType::Float32);
+row_via_array!(f64, ColumnType::Float64);
 
 impl<T: Row> Row for Box<[T]> {
     fn columns(name: &'static str) -> Vec<Column> {
@@ -234,6 +236,8 @@ pub enum ColumnType {
     UInt32,
     UInt64,
     UInt128,
+    Float32,
+    Float64,
     String,
     FixedString(usize),
     Array(&'static ColumnType),
@@ -248,6 +252,8 @@ impl ColumnType {
             b"UInt32" => Ok(Self::UInt32),
             b"UInt64" => Ok(Self::UInt64),
             b"UInt128" => Ok(Self::UInt128),
+            b"Float32" => Ok(Self::Float32),
+            b"Float64" => Ok(Self::Float64),
             b"String" => Ok(Self::String),
             b"DateTime" => Ok(Self::DateTime),
             _ => {
