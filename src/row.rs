@@ -73,7 +73,9 @@ impl<'a> Bytes<'a> {
     }
 }
 
-/// FIXME rename this to `Column`.
+/// The definition of a column within a table.
+///
+/// This consists of a column name and a column type.
 pub struct Column {
     pub(crate) name: &'static str,
     pub(crate) column_type: &'static ColumnType,
