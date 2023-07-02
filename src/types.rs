@@ -24,6 +24,7 @@ pub enum ColumnType {
     FixedString(usize),
     Array(&'static ColumnType),
     DateTime,
+    UUID,
 }
 
 impl ColumnType {
@@ -49,6 +50,7 @@ impl ColumnType {
 
             b"String" => Ok(Self::String),
             b"DateTime" => Ok(Self::DateTime),
+            b"UUID" => Ok(Self::UUID),
             _ => {
                 if bytes.starts_with(b"FixedString(") && bytes.last() == Some(&(')' as u8)) {
                     let mut len = 0;
@@ -124,5 +126,35 @@ impl Row for std::net::Ipv6Addr {
     }
     fn write(&self, buf: &mut impl crate::WriteRowBinary) -> Result<(), crate::Error> {
         self.octets().write(buf)
+    }
+}
+
+/// A newtype that enables using clickhouse UUID without a uuid crate dependency.
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
+pub struct Uuid([u8; 16]);
+
+impl From<[u8; 16]> for Uuid {
+    fn from(value: [u8; 16]) -> Self {
+        Uuid(value)
+    }
+}
+impl From<Uuid> for [u8; 16] {
+    fn from(value: Uuid) -> Self {
+        value.0
+    }
+}
+
+impl Row for Uuid {
+    fn columns(name: &'static str) -> Vec<Column> {
+        vec![Column {
+            name,
+            column_type: &ColumnType::UUID,
+        }]
+    }
+    fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
+        Ok(Uuid(buf.read()?))
+    }
+    fn write(&self, buf: &mut impl crate::WriteRowBinary) -> Result<(), crate::Error> {
+        self.0.write(buf)
     }
 }

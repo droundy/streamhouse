@@ -28,6 +28,7 @@ async fn fetch_all() {
             bytes String,
             ipv4 IPv4,
             ipv6 IPv6,
+            uuid UUID,
        ) Engine=MergeTree
            ORDER BY (f32);",
         )
@@ -53,6 +54,7 @@ async fn fetch_all() {
         bytes: Vec<u8>,
         ipv4: std::net::Ipv4Addr,
         ipv6: std::net::Ipv6Addr,
+        uuid: streamhouse::types::Uuid,
     }
     let rows = vec![AllTypes {
         f32: 137.0,
@@ -72,6 +74,7 @@ async fn fetch_all() {
         bytes: b"Hello world\0".to_vec(),
         ipv4: std::net::Ipv4Addr::new(127, 0, 0, 1),
         ipv6: std::net::Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff),
+        uuid: streamhouse::types::Uuid::from([5; 16]),
     }];
 
     client.insert("test", rows.clone()).await.unwrap();
