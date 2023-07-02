@@ -26,6 +26,8 @@ async fn fetch_all() {
             i128 Int128,
             string String,
             bytes String,
+            ipv4 IPv4,
+            ipv6 IPv6,
        ) Engine=MergeTree
            ORDER BY (f32);",
         )
@@ -49,6 +51,8 @@ async fn fetch_all() {
         i128: i128,
         string: String,
         bytes: Vec<u8>,
+        ipv4: std::net::Ipv4Addr,
+        ipv6: std::net::Ipv6Addr,
     }
     let rows = vec![AllTypes {
         f32: 137.0,
@@ -66,6 +70,8 @@ async fn fetch_all() {
         i128: 0,
         string: "Hello world".to_string(),
         bytes: b"Hello world\0".to_vec(),
+        ipv4: std::net::Ipv4Addr::new(127, 0, 0, 1),
+        ipv6: std::net::Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff),
     }];
 
     client.insert("test", rows.clone()).await.unwrap();

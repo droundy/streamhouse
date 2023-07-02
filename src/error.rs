@@ -1,6 +1,6 @@
 use std::error::Error as StdError;
 
-use crate::row::ColumnType;
+use crate::types::ColumnType;
 
 /// Represents all possible errors.
 #[derive(Debug, thiserror::Error)]
