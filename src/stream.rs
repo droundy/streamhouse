@@ -1,4 +1,4 @@
-use crate::{ColumnType, Error, Row};
+use crate::{row::Bytes, ColumnType, Error, Row};
 use futures_util::stream::TryStreamExt;
 
 pub(crate) struct Stream<R: Row> {
@@ -28,17 +28,20 @@ impl<R: Row> Stream<R> {
 
     pub async fn read<V: Row>(&mut self) -> Result<V, Error> {
         loop {
-            let buf = &self.bytes[self.cursor..];
-            match V::read(buf) {
-                Ok((v, buf)) => {
-                    self.cursor = self.bytes.len() - buf.len();
+            let mut buf = Bytes {
+                buf: &self.bytes[self.cursor..],
+            };
+            match V::read(&mut buf) {
+                Ok(v) => {
+                    self.cursor = self.bytes.len() - buf.buf.len();
                     return Ok(v);
                 }
                 Err(Error::NotEnoughData) => {
                     if let Some(more_bytes) = self.body.try_next().await? {
-                        self.bytes = if buf.is_empty() {
+                        self.bytes = if buf.buf.is_empty() {
                             more_bytes.to_vec()
                         } else {
+                            let buf = &self.bytes[self.cursor..];
                             let mut b = Vec::with_capacity(buf.len() + more_bytes.len());
                             b.extend(buf);
                             b.extend(more_bytes);

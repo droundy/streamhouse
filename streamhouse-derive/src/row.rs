@@ -65,9 +65,9 @@ impl ToTokens for RowStruct {
                                 #(out.extend(<#field_types as ::streamhouse::Row>::columns(#field_name_strs));)*
                                 out
                             }
-                            fn read(buf: &[u8]) -> Result<(Self, &[u8]), ::streamhouse::Error> {
-                                #(let (#field_names, buf) = <#field_types as ::streamhouse::Row>::read(buf)?;)*
-                                Ok((#name { #(#field_names),* }, buf))
+                            fn read(buf: &mut ::streamhouse::Bytes) -> Result<Self, ::streamhouse::Error> {
+                                #(let #field_names = buf.read()?;)*
+                                Ok(#name { #(#field_names),* })
                             }
                             fn write(&self, buf: &mut impl ::streamhouse::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
                                 use ::streamhouse::Row;
@@ -86,9 +86,8 @@ impl ToTokens for RowStruct {
                             fn columns(parent: &'static str) -> Vec<::streamhouse::AColumn> {
                                 <#field_type as ::streamhouse::Row>::columns(parent)
                             }
-                            fn read(buf: &[u8]) -> Result<(Self, &[u8]), ::streamhouse::Error> {
-                                let (inner, buf) = <#field_type as ::streamhouse::Row>::read(buf)?;
-                                Ok((#name ( inner ), buf))
+                            fn read(buf: &mut ::streamhouse::Bytes) -> Result<Self, ::streamhouse::Error> {
+                                Ok(#name ( buf.read()? ))
                             }
                             fn write(&self, buf: &mut impl ::streamhouse::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
                                 ::streamhouse::Row::write(&self.0, buf)

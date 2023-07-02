@@ -21,33 +21,55 @@ impl WriteRowBinary for Vec<u8> {
     }
 }
 
-fn read_u8(buf: &[u8]) -> Result<(u8, &[u8]), Error> {
-    if let Some((f, rest)) = buf.split_first() {
-        Ok((*f, rest))
-    } else {
-        Err(Error::NotEnoughData)
-    }
+pub struct Bytes<'a> {
+    pub(crate) buf: &'a [u8],
 }
 
-fn read_bytes(buf: &[u8], len: usize) -> Result<(&[u8], &[u8]), Error> {
-    if buf.len() < len {
-        Err(Error::NotEnoughData)
-    } else {
-        Ok(buf.split_at(len))
+impl<'a> Bytes<'a> {
+    pub fn read<T: Row>(&mut self) -> Result<T, Error> {
+        Row::read(self)
     }
-}
 
-fn read_leb128(mut buf: &[u8]) -> Result<(u64, &[u8]), Error> {
-    let mut result = 0;
-    let mut shift = 0;
-    let mut byte;
-    loop {
-        (byte, buf) = read_u8(buf)?;
-        result |= ((byte & 127) as u64) << shift;
-        if byte & 128 == 0 {
-            return Ok((result, buf));
+    fn read_u8(&mut self) -> Result<u8, Error> {
+        if let Some((&f, rest)) = self.buf.split_first() {
+            self.buf = rest;
+            Ok(f)
+        } else {
+            Err(Error::NotEnoughData)
         }
-        shift += 7;
+    }
+
+    fn read_bytes(&mut self, len: usize) -> Result<&'a [u8], Error> {
+        if self.buf.len() < len {
+            Err(Error::NotEnoughData)
+        } else {
+            let (v, rest) = self.buf.split_at(len);
+            self.buf = rest;
+            Ok(v)
+        }
+    }
+
+    fn read_array<const N: usize>(&mut self) -> Result<[u8; N], Error> {
+        if self.buf.len() < N {
+            Err(Error::NotEnoughData)
+        } else {
+            let (v, rest) = self.buf.split_at(N);
+            self.buf = rest;
+            Ok(v.try_into().unwrap())
+        }
+    }
+
+    fn read_leb128(&mut self) -> Result<usize, Error> {
+        let mut result = 0;
+        let mut shift = 0;
+        loop {
+            let byte = self.read_u8()?;
+            result |= ((byte & 127) as usize) << shift;
+            if byte & 128 == 0 {
+                return Ok(result);
+            }
+            shift += 7;
+        }
     }
 }
 
@@ -64,7 +86,7 @@ pub trait Row: Sized {
     /// for rows that are "primitive" column types.
     fn columns(parent: &'static str) -> Vec<AColumn>;
 
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error>;
+    fn read(buf: &mut Bytes) -> Result<Self, Error>;
     fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error>;
 }
 
@@ -75,10 +97,10 @@ impl Row for String {
             column_type: &ColumnType::String,
         }]
     }
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
-        let (l, buf) = read_leb128(buf)?;
-        let (bytes, buf) = read_bytes(buf, l as usize)?;
-        Ok((String::from_utf8(bytes.to_vec())?, buf))
+    fn read(buf: &mut Bytes) -> Result<Self, Error> {
+        let l = buf.read_leb128()?;
+        let bytes = buf.read_bytes(l)?;
+        Ok(String::from_utf8(bytes.to_vec())?)
     }
     fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
         buf.write_leb128(self.len() as u64)?;
@@ -96,10 +118,10 @@ impl Row for Vec<u8> {
             column_type: &ColumnType::String,
         }]
     }
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
-        let (l, buf) = read_leb128(buf)?;
-        let (bytes, buf) = read_bytes(buf, l as usize)?;
-        Ok((bytes.to_vec(), buf))
+    fn read(buf: &mut Bytes) -> Result<Self, Error> {
+        let l = buf.read_leb128()?;
+        let bytes = buf.read_bytes(l)?;
+        Ok(bytes.to_vec())
     }
     fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
         buf.write_leb128(self.len() as u64)?;
@@ -117,9 +139,8 @@ impl<const N: usize> Row for [u8; N] {
             column_type: &ColumnType::FixedString(N),
         }]
     }
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
-        let (bytes, buf) = read_bytes(buf, N)?;
-        Ok((bytes.try_into().unwrap(), buf))
+    fn read(buf: &mut Bytes) -> Result<Self, Error> {
+        buf.read_array()
     }
     fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
         for b in self {
@@ -136,77 +157,37 @@ impl Row for u8 {
             column_type: &ColumnType::UInt8,
         }]
     }
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
-        read_u8(buf)
+    fn read(buf: &mut Bytes) -> Result<Self, Error> {
+        buf.read_u8()
     }
     fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
         buf.write_u8(*self)
     }
 }
 
-impl Row for u16 {
-    fn columns(name: &'static str) -> Vec<AColumn> {
-        vec![AColumn {
-            name,
-            column_type: &ColumnType::UInt16,
-        }]
-    }
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
-        let (x, buf) = <[u8; 2]>::read(buf)?;
-        Ok((Self::from_le_bytes(x), buf))
-    }
-    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
-        self.to_le_bytes().write(buf)
-    }
+macro_rules! row_via_array {
+    ($t:ty, $clickhouse_type:expr) => {
+        impl Row for $t {
+            fn columns(name: &'static str) -> Vec<AColumn> {
+                vec![AColumn {
+                    name,
+                    column_type: &$clickhouse_type,
+                }]
+            }
+            fn read(buf: &mut Bytes) -> Result<Self, Error> {
+                Ok(Self::from_le_bytes(buf.read_array()?))
+            }
+            fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+                self.to_le_bytes().write(buf)
+            }
+        }
+    };
 }
 
-impl Row for u32 {
-    fn columns(name: &'static str) -> Vec<AColumn> {
-        vec![AColumn {
-            name,
-            column_type: &ColumnType::UInt32,
-        }]
-    }
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
-        let (x, buf) = <[u8; 4]>::read(buf)?;
-        Ok((Self::from_le_bytes(x), buf))
-    }
-    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
-        self.to_le_bytes().write(buf)
-    }
-}
-
-impl Row for u64 {
-    fn columns(name: &'static str) -> Vec<AColumn> {
-        vec![AColumn {
-            name,
-            column_type: &ColumnType::UInt64,
-        }]
-    }
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
-        let (x, buf) = <[u8; 8]>::read(buf)?;
-        Ok((Self::from_le_bytes(x), buf))
-    }
-    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
-        self.to_le_bytes().write(buf)
-    }
-}
-
-impl Row for u128 {
-    fn columns(name: &'static str) -> Vec<AColumn> {
-        vec![AColumn {
-            name,
-            column_type: &ColumnType::UInt128,
-        }]
-    }
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
-        let (x, buf) = <[u8; 16]>::read(buf)?;
-        Ok((Self::from_le_bytes(x), buf))
-    }
-    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
-        self.to_le_bytes().write(buf)
-    }
-}
+row_via_array!(u16, ColumnType::UInt16);
+row_via_array!(u32, ColumnType::UInt32);
+row_via_array!(u64, ColumnType::UInt64);
+row_via_array!(u128, ColumnType::UInt128);
 
 impl<T: Row> Row for Box<[T]> {
     fn columns(name: &'static str) -> Vec<AColumn> {
@@ -220,15 +201,13 @@ impl<T: Row> Row for Box<[T]> {
         };
         vec![AColumn { name, column_type }]
     }
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), Error> {
-        let (l, mut buf) = read_leb128(buf)?;
-        let mut out = Vec::with_capacity(l as usize);
+    fn read(buf: &mut Bytes) -> Result<Self, Error> {
+        let l = buf.read_leb128()?;
+        let mut out = Vec::with_capacity(l);
         for _ in 0..l {
-            let (v, rest) = T::read(buf)?;
-            buf = rest;
-            out.push(v);
+            out.push(buf.read()?);
         }
-        Ok((out.into_boxed_slice(), buf))
+        Ok(out.into_boxed_slice())
     }
     fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
         buf.write_leb128(self.len() as u64)?;

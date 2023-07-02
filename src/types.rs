@@ -24,9 +24,8 @@ impl Row for DateTime {
             column_type: &ColumnType::DateTime,
         }]
     }
-    fn read(buf: &[u8]) -> Result<(Self, &[u8]), crate::Error> {
-        let (v, buf) = u32::read(buf)?;
-        Ok((DateTime(v), buf))
+    fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
+        Ok(DateTime(u32::read(buf)?))
     }
     fn write(&self, buf: &mut impl crate::WriteRowBinary) -> Result<(), crate::Error> {
         self.0.write(buf)
