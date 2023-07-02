@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use crate::Column;
 
+use crate::row::PrimitiveRow;
 use crate::{Error, Row};
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord)]
@@ -82,6 +83,18 @@ impl ColumnType {
                             *sub_column,
                             Box::leak(Box::new(Self::LowCardinality(sub_column))),
                         );
+                        Ok(map[sub_column])
+                    }
+                } else if bytes.starts_with(b"Array(") && bytes.last() == Some(&b')') {
+                    let sub_bytes = &bytes[b"Array(".len()..bytes.len() - 1];
+                    static MAP: std::sync::Mutex<BTreeMap<ColumnType, &'static ColumnType>> =
+                        std::sync::Mutex::new(BTreeMap::new());
+                    let mut map = MAP.lock().unwrap();
+                    let sub_column = Self::parse(sub_bytes)?;
+                    if let Some(v) = map.get(sub_column) {
+                        Ok(v)
+                    } else {
+                        map.insert(*sub_column, Box::leak(Box::new(Self::Array(sub_column))));
                         Ok(map[sub_column])
                     }
                 } else {
@@ -199,13 +212,6 @@ impl<T> std::ops::Deref for LowCardinality<T> {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
-}
-
-trait PrimitiveRow: Row {
-    const COLUMN_TYPE: &'static ColumnType;
-}
-impl PrimitiveRow for String {
-    const COLUMN_TYPE: &'static ColumnType = &ColumnType::String;
 }
 
 impl<T: PrimitiveRow> Row for LowCardinality<T> {
