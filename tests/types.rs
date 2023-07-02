@@ -24,13 +24,15 @@ async fn fetch_all() {
             i32 Int32,
             i64 Int64,
             i128 Int128,
+            string String,
+            bytes String,
        ) Engine=MergeTree
            ORDER BY (f32);",
         )
         .await
         .unwrap();
 
-    #[derive(Row, PartialEq, Debug, Clone, Copy)]
+    #[derive(Row, PartialEq, Debug, Clone)]
     struct AllTypes {
         f32: f32,
         f64: f64,
@@ -45,6 +47,8 @@ async fn fetch_all() {
         i32: i32,
         i64: i64,
         i128: i128,
+        string: String,
+        bytes: Vec<u8>,
     }
     let rows = vec![AllTypes {
         f32: 137.0,
@@ -60,6 +64,8 @@ async fn fetch_all() {
         i32: -1,
         i64: 0xffff,
         i128: 0,
+        string: "Hello world".to_string(),
+        bytes: b"Hello world\0".to_vec(),
     }];
 
     client.insert("test", rows.clone()).await.unwrap();
