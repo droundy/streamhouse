@@ -1,7 +1,7 @@
 mod common;
 
 use function_name::named;
-use streamhouse_derive::Row;
+use streamhouse::{types::LowCardinality, Row};
 
 #[named]
 #[tokio::test]
@@ -25,6 +25,7 @@ async fn fetch_all() {
             i64 Int64,
             i128 Int128,
             string String,
+            low_string LowCardinality(String),
             bytes String,
             ipv4 IPv4,
             ipv6 IPv6,
@@ -51,6 +52,7 @@ async fn fetch_all() {
         i64: i64,
         i128: i128,
         string: String,
+        low_string: LowCardinality<String>,
         bytes: Vec<u8>,
         ipv4: std::net::Ipv4Addr,
         ipv6: std::net::Ipv6Addr,
@@ -71,6 +73,7 @@ async fn fetch_all() {
         i64: 0xffff,
         i128: 0,
         string: "Hello world".to_string(),
+        low_string: "David".to_string().into(),
         bytes: b"Hello world\0".to_vec(),
         ipv4: std::net::Ipv4Addr::new(127, 0, 0, 1),
         ipv6: std::net::Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff),

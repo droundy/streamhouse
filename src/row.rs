@@ -10,7 +10,7 @@ pub trait WriteRowBinary {
                 return Ok(());
             } else {
                 self.write_u8(value as u8)?;
-                value = value >> 7;
+                value >>= 7;
             }
         }
     }
@@ -77,6 +77,7 @@ impl<'a> Bytes<'a> {
 /// The definition of a column within a table.
 ///
 /// This consists of a column name and a column type.
+#[derive(Debug)]
 pub struct Column {
     pub(crate) name: &'static str,
     pub(crate) column_type: &'static ColumnType,

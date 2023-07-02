@@ -104,13 +104,13 @@ impl<R: Row> Stream<R> {
         let mut column_types: Vec<ColumnType> = Vec::new();
         for _ in 0..column_names.len() {
             let s: Vec<u8> = self.read().await?;
-            column_types.push(ColumnType::parse(&s)?);
+            column_types.push(*ColumnType::parse(&s)?);
         }
         let types = R::columns("")
             .iter()
             .map(|c| *c.column_type)
             .collect::<Vec<_>>();
-        if &types != &column_types {
+        if types != column_types {
             return Err(Error::WrongColumnTypes {
                 row: types,
                 schema: column_types,
