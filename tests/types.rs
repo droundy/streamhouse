@@ -33,6 +33,8 @@ async fn fetch_all() {
             string_list Array(String),
             u8_list Array(UInt8),
             bool Bool,
+            null_string Nullable(String),
+            null_u32 Nullable(UInt32),
        ) Engine=MergeTree
            ORDER BY (f32);",
         )
@@ -63,6 +65,8 @@ async fn fetch_all() {
         string_list: Box<[String]>,
         u8_list: Box<[u8]>,
         bool: bool,
+        null_string: Option<String>,
+        null_u32: Option<u32>,
     }
     let rows = vec![AllTypes {
         f32: 137.0,
@@ -94,6 +98,8 @@ async fn fetch_all() {
             .to_vec()
             .into_boxed_slice(),
         bool: true,
+        null_string: Some("foo".to_string()),
+        null_u32: None,
     }];
 
     client.insert("test", rows.clone()).await.unwrap();

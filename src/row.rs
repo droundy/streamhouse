@@ -244,10 +244,6 @@ primitive_row_type!(u8, ColumnType::UInt8);
 
 impl<T: PrimitiveRow> Row for Box<[T]> {
     fn columns(name: &'static str) -> Vec<Column> {
-        let c = T::columns(name);
-        if c.len() != 1 {
-            panic!("Arrays must have a primitive type, should enforce at compile time with sealed trait FIXME");
-        }
         vec![Column {
             name,
             column_type: &ColumnType::Array(T::COLUMN_TYPE),
@@ -267,5 +263,30 @@ impl<T: PrimitiveRow> Row for Box<[T]> {
             v.write(buf)?;
         }
         Ok(())
+    }
+}
+
+impl<T: PrimitiveRow> Row for Option<T> {
+    fn columns(name: &'static str) -> Vec<Column> {
+        vec![Column {
+            name,
+            column_type: &ColumnType::Nullable(T::COLUMN_TYPE),
+        }]
+    }
+    fn read(buf: &mut Bytes) -> Result<Self, Error> {
+        let b = buf.read_u8()?;
+        if b == 1 {
+            Ok(None)
+        } else {
+            Ok(Some(buf.read()?))
+        }
+    }
+    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        if let Some(v) = self {
+            buf.write_u8(0)?;
+            v.write(buf)
+        } else {
+            buf.write_u8(1)
+        }
     }
 }

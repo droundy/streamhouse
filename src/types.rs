@@ -30,6 +30,7 @@ pub enum ColumnType {
     LowCardinality(&'static ColumnType),
     DateTime,
     UUID,
+    Nullable(&'static ColumnType),
 }
 
 impl ColumnType {
@@ -98,6 +99,18 @@ impl ColumnType {
                         Ok(v)
                     } else {
                         map.insert(*sub_column, Box::leak(Box::new(Self::Array(sub_column))));
+                        Ok(map[sub_column])
+                    }
+                } else if bytes.starts_with(b"Nullable(") && bytes.last() == Some(&b')') {
+                    let sub_bytes = &bytes[b"Nullable(".len()..bytes.len() - 1];
+                    static MAP: std::sync::Mutex<BTreeMap<ColumnType, &'static ColumnType>> =
+                        std::sync::Mutex::new(BTreeMap::new());
+                    let mut map = MAP.lock().unwrap();
+                    let sub_column = Self::parse(sub_bytes)?;
+                    if let Some(v) = map.get(sub_column) {
+                        Ok(v)
+                    } else {
+                        map.insert(*sub_column, Box::leak(Box::new(Self::Nullable(sub_column))));
                         Ok(map[sub_column])
                     }
                 } else {
