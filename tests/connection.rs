@@ -154,9 +154,9 @@ async fn one_string_column() {
         name: String,
     }
     client
-        .insert(
+        .insert::<Name, _>(
             "test",
-            [
+            &[
                 Name {
                     name: "Roundy".to_string(),
                 },
