@@ -94,7 +94,7 @@ impl Client {
             Box::pin(rows);
         let builder = self.request_builder();
         let request = builder
-            .body(row_stream_to_body(table.to_string(), rows))
+            .body(row_stream_to_body(table, rows)?)
             .map_err(|err| Error::InvalidParams(Box::new(err)))?;
         let response = self.client.request(request).await.map_err(Error::from)?;
         if response.status() != hyper::StatusCode::OK {
@@ -122,74 +122,65 @@ impl Client {
 }
 
 fn row_stream_to_body<R: Row + 'static + Send>(
-    table: String,
+    table: &str,
     rows: Pin<Box<dyn futures_util::Stream<Item = Result<R, Error>> + Send>>,
-) -> hyper::Body {
+) -> Result<hyper::Body, Error> {
     let s: Box<
         (dyn futures_util::Stream<
             Item = Result<hyper::body::Bytes, Box<(dyn std::error::Error + Send + Sync + 'static)>>,
         > + Send
              + 'static),
     > = Box::new(try_unfold(
-        RowReader::new(table, rows),
+        RowReader::new(table, rows)?,
         RowReader::next_and_self,
     ));
-    hyper::Body::from(s)
+    Ok(hyper::Body::from(s))
 }
 
 struct RowReader<R> {
-    table: String,
     rows: Pin<Box<dyn futures_util::Stream<Item = Vec<Result<R, Error>>> + Send>>,
-    have_started: bool,
+    buffer: Vec<u8>,
 }
 
 const MAX_ROWS: usize = 10_000;
 
 impl<R: Row + 'static> RowReader<R> {
     fn new(
-        table: String,
+        table: &str,
         rows: Pin<Box<dyn futures_util::Stream<Item = Result<R, Error>> + Send>>,
-    ) -> Self {
-        Self {
-            table,
-            rows: Box::pin(rows.ready_chunks(MAX_ROWS)),
-            have_started: false,
+    ) -> Result<Self, Error> {
+        let mut buffer =
+            format!("INSERT INTO {table} FORMAT RowBinaryWithNamesAndTypes\n").into_bytes();
+        let columns = R::columns("");
+        buffer.write_leb128(columns.len() as u64)?;
+        for n in columns.iter().map(|c| c.name) {
+            if n.is_empty() {
+                return Err(Error::MissingColumnName {
+                    row: columns.into_iter().map(|c| c.name).collect(),
+                });
+            }
+            n.to_string().write(&mut buffer)?;
         }
+        for t in columns.iter().map(|c| c.column_type) {
+            format!("{t:?}").write(&mut buffer)?;
+        }
+        Ok(Self {
+            rows: Box::pin(rows.ready_chunks(MAX_ROWS)),
+            buffer,
+        })
     }
     async fn next_and_self(
         mut self,
     ) -> Result<Option<(hyper::body::Bytes, Self)>, Box<dyn std::error::Error + Send + Sync>> {
-        let mut bytes = Vec::new();
-        if !self.have_started {
-            bytes = format!(
-                "INSERT INTO {} FORMAT RowBinaryWithNamesAndTypes\n",
-                self.table
-            )
-            .into_bytes();
-            let columns = R::columns("");
-            bytes.write_leb128(columns.len() as u64)?;
-            for n in columns.iter().map(|c| c.name) {
-                if n.is_empty() {
-                    return Err(Box::new(Error::MissingColumnName {
-                        row: columns.into_iter().map(|c| c.name).collect(),
-                    }));
-                }
-                n.to_string().write(&mut bytes)?;
-            }
-            for t in columns.iter().map(|c| c.column_type) {
-                format!("{t:?}").write(&mut bytes)?;
-            }
-            self.have_started = true;
-        }
         if let Some(chunk) = self.rows.next().await {
             for row in chunk {
-                let row = row?;
-                row.write(&mut bytes)?;
+                row?.write(&mut self.buffer)?;
             }
         }
-        if bytes.is_empty() {
+        if self.buffer.is_empty() {
             Ok(None)
         } else {
+            let bytes = std::mem::take(&mut self.buffer);
             Ok(Some((hyper::body::Bytes::from(bytes), self)))
         }
     }
