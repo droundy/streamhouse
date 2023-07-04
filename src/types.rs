@@ -27,6 +27,7 @@ pub enum ColumnType {
     IPv6,
     FixedString(usize),
     Array(&'static ColumnType),
+    Map(&'static ColumnType, &'static ColumnType),
     LowCardinality(&'static ColumnType),
     DateTime,
     UUID,
@@ -100,6 +101,29 @@ impl ColumnType {
                     } else {
                         map.insert(*sub_column, Box::leak(Box::new(Self::Array(sub_column))));
                         Ok(map[sub_column])
+                    }
+                } else if bytes.starts_with(b"Map(") && bytes.last() == Some(&b')') {
+                    let sub_bytes = &bytes[b"Map(".len()..bytes.len() - 1];
+                    let Some(i) = sub_bytes.iter().position(|&b| b == b',') else {
+                        return Err(Error::UnsupportedColumn(format!("Map should have a comma: {}", String::from_utf8_lossy(sub_bytes))))
+                    };
+                    let key_bytes = &sub_bytes[..i];
+                    let mut value_bytes = &sub_bytes[i + 1..];
+                    if value_bytes.first() == Some(&b' ') {
+                        value_bytes = &value_bytes[1..];
+                    }
+                    static MAP: std::sync::Mutex<
+                        BTreeMap<(ColumnType, ColumnType), &'static ColumnType>,
+                    > = std::sync::Mutex::new(BTreeMap::new());
+                    let mut map = MAP.lock().unwrap();
+                    let key_column = Self::parse(key_bytes)?;
+                    let value_column = Self::parse(value_bytes)?;
+                    let kv = (*key_column, *value_column);
+                    if let Some(v) = map.get(&kv) {
+                        Ok(v)
+                    } else {
+                        map.insert(kv, Box::leak(Box::new(Self::Map(key_column, value_column))));
+                        Ok(map[&kv])
                     }
                 } else if bytes.starts_with(b"Nullable(") && bytes.last() == Some(&b')') {
                     let sub_bytes = &bytes[b"Nullable(".len()..bytes.len() - 1];
@@ -242,5 +266,32 @@ impl<T: PrimitiveRow> Row for LowCardinality<T> {
     }
     fn write(&self, buf: &mut impl crate::WriteRowBinary) -> Result<(), crate::Error> {
         self.0.write(buf)
+    }
+}
+
+impl<K: PrimitiveRow + std::hash::Hash + Eq, V: PrimitiveRow> Row
+    for std::collections::HashMap<K, V>
+{
+    fn columns(name: &'static str) -> Vec<Column> {
+        vec![Column {
+            name,
+            column_type: &ColumnType::Map(K::COLUMN_TYPE, V::COLUMN_TYPE),
+        }]
+    }
+    fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
+        let length = buf.read_leb128()?;
+        let mut h = std::collections::HashMap::with_capacity(length);
+        for _ in 0..length {
+            h.insert(buf.read()?, buf.read()?);
+        }
+        Ok(h)
+    }
+    fn write(&self, buf: &mut impl crate::WriteRowBinary) -> Result<(), crate::Error> {
+        buf.write_leb128(self.len() as u64)?;
+        for (k, v) in self.iter() {
+            k.write(buf)?;
+            v.write(buf)?;
+        }
+        Ok(())
     }
 }

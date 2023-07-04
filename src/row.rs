@@ -60,7 +60,7 @@ impl<'a> Bytes<'a> {
         }
     }
 
-    fn read_leb128(&mut self) -> Result<usize, Error> {
+    pub(crate) fn read_leb128(&mut self) -> Result<usize, Error> {
         let mut result = 0;
         let mut shift = 0;
         loop {
