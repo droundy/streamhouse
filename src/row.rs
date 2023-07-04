@@ -122,7 +122,7 @@ impl Row for String {
     }
 }
 
-pub(crate) trait PrimitiveRow: Row {
+pub trait PrimitiveRow: Row {
     const COLUMN_TYPE: &'static ColumnType;
 }
 
