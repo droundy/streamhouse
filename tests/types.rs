@@ -35,7 +35,8 @@ async fn fetch_all() {
             bool Bool,
             null_string Nullable(String),
             null_u32 Nullable(UInt32),
-            mappy Map(String,UInt64)
+            mappy Map(String,UInt64),
+            bmappy Map(String,String)
        ) Engine=MergeTree
            ORDER BY (f32);",
         )
@@ -69,6 +70,7 @@ async fn fetch_all() {
         null_string: Option<String>,
         null_u32: Option<u32>,
         mappy: std::collections::HashMap<String, u64>,
+        bmappy: std::collections::BTreeMap<String, Vec<u8>>,
     }
     let rows = vec![AllTypes {
         f32: 137.0,
@@ -105,6 +107,10 @@ async fn fetch_all() {
         mappy: ["hello", "world", "good", "day"]
             .iter()
             .map(|s| (s.to_string(), s.len() as u64))
+            .collect(),
+        bmappy: ["Hello", "world", "good", "day"]
+            .iter()
+            .map(|s| (s.to_string(), s.to_ascii_lowercase().as_bytes().to_vec()))
             .collect(),
     }];
 

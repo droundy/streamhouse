@@ -295,3 +295,28 @@ impl<K: PrimitiveRow + std::hash::Hash + Eq, V: PrimitiveRow> Row
         Ok(())
     }
 }
+
+impl<K: PrimitiveRow + Ord + Eq, V: PrimitiveRow> Row for std::collections::BTreeMap<K, V> {
+    fn columns(name: &'static str) -> Vec<Column> {
+        vec![Column {
+            name,
+            column_type: &ColumnType::Map(K::COLUMN_TYPE, V::COLUMN_TYPE),
+        }]
+    }
+    fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
+        let length = buf.read_leb128()?;
+        let mut h = std::collections::BTreeMap::new();
+        for _ in 0..length {
+            h.insert(buf.read()?, buf.read()?);
+        }
+        Ok(h)
+    }
+    fn write(&self, buf: &mut impl crate::WriteRowBinary) -> Result<(), crate::Error> {
+        buf.write_leb128(self.len() as u64)?;
+        for (k, v) in self.iter() {
+            k.write(buf)?;
+            v.write(buf)?;
+        }
+        Ok(())
+    }
+}

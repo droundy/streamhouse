@@ -126,6 +126,9 @@ pub(crate) trait PrimitiveRow: Row {
     const COLUMN_TYPE: &'static ColumnType;
 }
 
+impl PrimitiveRow for Vec<u8> {
+    const COLUMN_TYPE: &'static ColumnType = &ColumnType::String;
+}
 impl Row for Vec<u8> {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
