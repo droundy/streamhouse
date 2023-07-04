@@ -8,8 +8,8 @@ mod stream;
 pub mod types;
 
 pub(crate) mod row;
-pub use row::Row;
 pub(crate) use row::{Column, WriteRowBinary};
+pub use row::{Row, RowAs};
 pub(crate) use types::ColumnType;
 
 /// Types that are used internally in `#[derive(Row)]`

@@ -293,3 +293,45 @@ impl<T: PrimitiveRow> Row for Option<T> {
         }
     }
 }
+
+/// Trait for types that can be represented in clickhouse as another type.
+///
+/// # Example
+/// ```
+/// struct DateTimeWithNanos(f64);
+///
+/// #[derive(streamhouse::Row)]
+/// struct DateInClickhouse {
+///     /// The first column is called datetime
+///     seconds: u64,
+///     /// There is another nanos colum for the nanoseconds
+///     nanos: u32,
+/// }
+///
+/// impl streamhouse::RowAs for DateTimeWithNanos {
+///     type InternalRow = DateInClickhouse;
+///     fn from_internal(internal: DateInClickhouse) -> Self {
+///         Self(internal.seconds as f64 + internal.nanos as f64 * 1e-9)
+///     }
+///     fn to_internal(&self) -> Self::InternalRow {
+///         DateInClickhouse { seconds: self.0 as u64, nanos: ((self.0 - self.0.floor())*1e9) as u32}
+///     }
+/// }
+/// ```
+pub trait RowAs {
+    type InternalRow: Row;
+    fn from_internal(internal: Self::InternalRow) -> Self;
+    fn to_internal(&self) -> Self::InternalRow;
+}
+impl<R: RowAs> Row for R {
+    fn columns(parent: &'static str) -> Vec<Column> {
+        <Self as RowAs>::InternalRow::columns(parent)
+    }
+    fn read(buf: &mut Bytes) -> Result<Self, Error> {
+        let internal = <Self as RowAs>::InternalRow::read(buf)?;
+        Ok(<Self as RowAs>::from_internal(internal))
+    }
+    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        self.to_internal().write(buf)
+    }
+}
