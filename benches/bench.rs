@@ -72,17 +72,84 @@ use std::time::Instant;
 use function_name::named;
 use streamhouse_derive::Row;
 
-#[derive(Row, Eq, PartialEq, Debug, Clone, Copy, clickhouse::Row, serde::Deserialize)]
+#[derive(
+    Row, Eq, PartialEq, Debug, Clone, Copy, clickhouse::Row, serde::Deserialize, serde::Serialize,
+)]
 struct AgeEarsWeightRow {
     age: u64,
     num_ears: u8,
     weight: u64,
 }
 
+const NTESTS: usize = 3;
+
+async fn bench_insert(clients: &ClickhouseClients, rows: &[AgeEarsWeightRow]) {
+    for (name, client) in clients.streamhouse.iter() {
+        for _ in 0..NTESTS {
+            client.execute(r"TRUNCATE TABLE test;").await.unwrap();
+            let start = std::time::Instant::now();
+            client
+                .insert::<AgeEarsWeightRow, _>("test", rows)
+                .await
+                .unwrap();
+            println!("{name} insert took {}s", start.elapsed().as_secs_f64());
+        }
+        for _ in 0..NTESTS {
+            client.execute(r"TRUNCATE TABLE test;").await.unwrap();
+            let start = std::time::Instant::now();
+            client
+                .insert_stream::<AgeEarsWeightRow>(
+                    "test",
+                    futures_util::stream::iter(rows.to_vec().into_iter().map(Ok)),
+                )
+                .await
+                .unwrap();
+            println!(
+                "{name} insert_stream took {}s",
+                start.elapsed().as_secs_f64()
+            );
+        }
+    }
+    for (name, client) in clients.clickhouse.iter() {
+        for _ in 0..NTESTS {
+            client
+                .query(r"TRUNCATE TABLE test;")
+                .execute()
+                .await
+                .unwrap();
+            let start = std::time::Instant::now();
+            let mut inserting = client.insert::<AgeEarsWeightRow>("test").unwrap();
+            for r in rows.iter() {
+                inserting.write(r).await.unwrap();
+            }
+            inserting.end().await.unwrap();
+            println!("{name} insert took {}s", start.elapsed().as_secs_f64());
+        }
+    }
+    for (name, pool) in clients.clickhouse_rs.iter() {
+        let mut handle = pool.get_handle().await.unwrap();
+        for _ in 0..NTESTS {
+            handle.execute(r"TRUNCATE TABLE test;").await.unwrap();
+            let start = std::time::Instant::now();
+            let mut block = clickhouse_rs::Block::with_capacity(rows.len());
+            use clickhouse_rs::row;
+            for r in rows.iter() {
+                block
+                    .push(row! {
+                        age: r.age,
+                        weight: r.weight,
+                        num_ears: r.num_ears,
+                    })
+                    .unwrap();
+            }
+            handle.insert("test", block).await.unwrap();
+            println!("{name} insert took {}s", start.elapsed().as_secs_f64());
+        }
+    }
+}
+
 async fn bench_age_ears_weight(clients: &ClickhouseClients) {
     let query = "select age, num_ears, weight from test";
-
-    const NTESTS: usize = 3;
 
     // First run the query a few times to get everything into cache that will be in cache.
     for _ in 0..NTESTS {
@@ -233,7 +300,7 @@ async fn main() {
         .unwrap();
 
     let mut rows = Vec::new();
-    const NUM_ROWS: u64 = 10_000_000;
+    const NUM_ROWS: u64 = 1_000_000;
     for i in 0..NUM_ROWS {
         rows.push(AgeEarsWeightRow {
             age: (i * 137 + 13) % 100,
@@ -242,13 +309,8 @@ async fn main() {
         })
     }
 
-    clients.streamhouse[0]
-        .1
-        .insert("test", rows.iter().copied())
-        .await
-        .unwrap();
-
     println!("\n\n### Benchmarking with {NUM_ROWS} small values");
+    bench_insert(&clients, &rows).await;
     bench_age_ears_weight(&clients).await;
 
     clients.streamhouse[0]
@@ -268,12 +330,8 @@ async fn main() {
             num_ears: rand::random(),
         })
     }
-    clients.streamhouse[0]
-        .1
-        .insert("test", rows.iter().copied())
-        .await
-        .unwrap();
 
     println!("\n\n### Benchmarking with {NUM_ROWS} fully random values");
+    bench_insert(&clients, &rows).await;
     bench_age_ears_weight(&clients).await;
 }

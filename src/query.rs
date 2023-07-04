@@ -81,6 +81,10 @@ impl Client {
         Ok(())
     }
 
+    /// Insert a stream of rows into a table.
+    ///
+    /// This method is preferred over [`Client::insert`] in cases where you have
+    /// so many rows that you do not want to store them all in memory.
     pub async fn insert_stream<R: Row + Send + 'static>(
         &self,
         table: &str,
