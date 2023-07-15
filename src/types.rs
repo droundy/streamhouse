@@ -32,6 +32,7 @@ pub enum ColumnType {
     DateTime,
     UUID,
     Nullable(&'static ColumnType),
+    Enum8(&'static [(&'static str, u8)]),
 }
 
 impl ColumnType {
@@ -100,6 +101,18 @@ impl ColumnType {
                         Ok(v)
                     } else {
                         map.insert(*sub_column, Box::leak(Box::new(Self::Array(sub_column))));
+                        Ok(map[sub_column])
+                    }
+                } else if bytes.starts_with(b"Enum8(") && bytes.last() == Some(&b')') {
+                    let sub_bytes = &bytes[b"Enum8(".len()..bytes.len() - 1];
+                    static MAP: std::sync::Mutex<BTreeMap<ColumnType, &'static ColumnType>> =
+                        std::sync::Mutex::new(BTreeMap::new());
+                    let mut map = MAP.lock().unwrap();
+                    let sub_column = Self::parse(sub_bytes)?;
+                    if let Some(v) = map.get(sub_column) {
+                        Ok(v)
+                    } else {
+                        map.insert(*sub_column, Box::leak(Box::new(Self::Enum8(sub_column))));
                         Ok(map[sub_column])
                     }
                 } else if bytes.starts_with(b"Map(") && bytes.last() == Some(&b')') {

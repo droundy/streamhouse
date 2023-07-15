@@ -36,12 +36,20 @@ async fn fetch_all() {
             null_string Nullable(String),
             null_u32 Nullable(UInt32),
             mappy Map(String,UInt64),
-            bmappy Map(String,String)
+            bmappy Map(String,String),
+            greeting Enum('hello' = 1, 'goodbye' = 2, 'adios' = 3)
        ) Engine=MergeTree
            ORDER BY (f32);",
         )
         .await
         .unwrap();
+
+    #[derive(Row, PartialEq, Debug, Clone, Copy)]
+    enum Greeting {
+        Hello = 1,
+        Goodbye = 2,
+        Adios = 3,
+    }
 
     #[derive(Row, PartialEq, Debug, Clone)]
     struct AllTypes {
@@ -71,6 +79,7 @@ async fn fetch_all() {
         null_u32: Option<u32>,
         mappy: std::collections::HashMap<String, u64>,
         bmappy: std::collections::BTreeMap<String, Vec<u8>>,
+        greeting: Greeting,
     }
     let rows = vec![AllTypes {
         f32: 137.0,
@@ -112,6 +121,7 @@ async fn fetch_all() {
             .iter()
             .map(|s| (s.to_string(), s.to_ascii_lowercase().as_bytes().to_vec()))
             .collect(),
+        greeting: Greeting::Hello,
     }];
 
     client.insert("test", rows.clone()).await.unwrap();

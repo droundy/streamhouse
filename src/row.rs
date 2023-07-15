@@ -79,8 +79,8 @@ impl<'a> Bytes<'a> {
 /// This consists of a column name and a column type.
 #[derive(Debug)]
 pub struct Column {
-    pub(crate) name: &'static str,
-    pub(crate) column_type: &'static ColumnType,
+    pub name: &'static str,
+    pub column_type: &'static ColumnType,
 }
 
 /// A type that is *either* a column type *or* a full clickhouse row.
