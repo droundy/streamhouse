@@ -121,18 +121,11 @@ impl Row for String {
     }
 }
 
-pub trait PrimitiveRow: Row {
-    const COLUMN_TYPE: &'static str;
-}
-
-impl PrimitiveRow for Vec<u8> {
-    const COLUMN_TYPE: &'static str = &"String";
-}
 impl Row for Vec<u8> {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: Self::COLUMN_TYPE.to_string(),
+            column_type: "String".to_string(),
         }]
     }
     fn read(buf: &mut Bytes) -> Result<Self, Error> {
@@ -176,7 +169,7 @@ impl Row for u8 {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: Self::COLUMN_TYPE.to_string(),
+            column_type: "UInt8".to_string(),
         }]
     }
     fn read(buf: &mut Bytes) -> Result<Self, Error> {
@@ -187,15 +180,11 @@ impl Row for u8 {
     }
 }
 
-impl PrimitiveRow for bool {
-    const COLUMN_TYPE: &'static str = "Bool";
-}
-
 impl Row for bool {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: Self::COLUMN_TYPE.to_string(),
+            column_type: "Bool".to_string(),
         }]
     }
     fn read(buf: &mut Bytes) -> Result<Self, Error> {
@@ -222,9 +211,6 @@ macro_rules! row_via_array {
                 self.to_le_bytes().write(buf)
             }
         }
-        impl PrimitiveRow for $t {
-            const COLUMN_TYPE: &'static str = $clickhouse_type;
-        }
     };
 }
 
@@ -242,25 +228,25 @@ row_via_array!(i128, "Int128");
 row_via_array!(f32, "Float32");
 row_via_array!(f64, "Float64");
 
-macro_rules! primitive_row_type {
-    ($t:ty, $clickhouse_type:expr) => {
-        impl PrimitiveRow for $t {
-            const COLUMN_TYPE: &'static str = $clickhouse_type;
-        }
-    };
+pub(crate) fn single_column<R: Row>() -> String {
+    let c = R::columns("");
+    if c.len() == 1 {
+        c.into_iter().map(|c| c.column_type).next().unwrap()
+    } else {
+        let types = c
+            .into_iter()
+            .map(|c| c.column_type)
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("Tuple({types})")
+    }
 }
-primitive_row_type!(String, "String");
-primitive_row_type!(crate::types::Uuid, "UUID");
-primitive_row_type!(u8, "UInt8");
 
 impl<T: Row> Row for Box<[T]> {
     fn columns(name: &'static str) -> Vec<Column> {
-        let c = T::columns(name);
-        assert_eq!(1, c.len());
-        let t = c.into_iter().map(|c| c.column_type).next().unwrap();
         vec![Column {
             name,
-            column_type: format!("Array({t})"),
+            column_type: format!("Array({})", single_column::<T>()),
         }]
     }
     fn read(buf: &mut Bytes) -> Result<Self, Error> {
@@ -280,11 +266,11 @@ impl<T: Row> Row for Box<[T]> {
     }
 }
 
-impl<T: PrimitiveRow> Row for Option<T> {
+impl<T: Row> Row for Option<T> {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: format!("Nullable({})", T::COLUMN_TYPE),
+            column_type: format!("Nullable({})", single_column::<T>()),
         }]
     }
     fn read(buf: &mut Bytes) -> Result<Self, Error> {

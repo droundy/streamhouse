@@ -13,7 +13,7 @@ pub use row::{Row, RowAs};
 
 /// Types that are used internally in `#[derive(Row)]`
 pub mod internal {
-    pub use crate::row::{Bytes, Column, PrimitiveRow, WriteRowBinary};
+    pub use crate::row::{Bytes, Column, WriteRowBinary};
 }
 
 /// Derive macro for the [`Row`] trait

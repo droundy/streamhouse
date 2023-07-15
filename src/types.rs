@@ -2,7 +2,7 @@
 
 use crate::Column;
 
-use crate::row::PrimitiveRow;
+use crate::row::single_column;
 use crate::Row;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
@@ -19,15 +19,11 @@ impl DateTime {
     }
 }
 
-impl PrimitiveRow for DateTime {
-    const COLUMN_TYPE: &'static str = "DateTime";
-}
-
 impl Row for DateTime {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: Self::COLUMN_TYPE.to_string(),
+            column_type: "DateTime".to_string(),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -38,15 +34,11 @@ impl Row for DateTime {
     }
 }
 
-impl PrimitiveRow for std::net::Ipv4Addr {
-    const COLUMN_TYPE: &'static str = "IPv4";
-}
-
 impl Row for std::net::Ipv4Addr {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: Self::COLUMN_TYPE.to_string(),
+            column_type: "IPv4".to_string(),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -58,15 +50,11 @@ impl Row for std::net::Ipv4Addr {
     }
 }
 
-impl PrimitiveRow for std::net::Ipv6Addr {
-    const COLUMN_TYPE: &'static str = "IPv6";
-}
-
 impl Row for std::net::Ipv6Addr {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: Self::COLUMN_TYPE.to_string(),
+            column_type: "IPv6".to_string(),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -97,7 +85,7 @@ impl Row for Uuid {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: Self::COLUMN_TYPE.to_string(),
+            column_type: "UUID".to_string(),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -124,11 +112,11 @@ impl<T> std::ops::Deref for LowCardinality<T> {
     }
 }
 
-impl<T: PrimitiveRow> Row for LowCardinality<T> {
+impl<T: Row> Row for LowCardinality<T> {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: format!("LowCardinality({})", T::COLUMN_TYPE),
+            column_type: format!("LowCardinality({})", single_column::<T>()),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -139,13 +127,11 @@ impl<T: PrimitiveRow> Row for LowCardinality<T> {
     }
 }
 
-impl<K: PrimitiveRow + std::hash::Hash + Eq, V: PrimitiveRow> Row
-    for std::collections::HashMap<K, V>
-{
+impl<K: Row + std::hash::Hash + Eq, V: Row> Row for std::collections::HashMap<K, V> {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: format!("Map({}, {})", K::COLUMN_TYPE, V::COLUMN_TYPE),
+            column_type: format!("Map({}, {})", single_column::<K>(), single_column::<V>()),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -166,11 +152,11 @@ impl<K: PrimitiveRow + std::hash::Hash + Eq, V: PrimitiveRow> Row
     }
 }
 
-impl<K: PrimitiveRow + Ord + Eq, V: PrimitiveRow> Row for std::collections::BTreeMap<K, V> {
+impl<K: Row + Ord + Eq, V: Row> Row for std::collections::BTreeMap<K, V> {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: format!("Map({}, {})", K::COLUMN_TYPE, V::COLUMN_TYPE),
+            column_type: format!("Map({}, {})", single_column::<K>(), single_column::<V>()),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
