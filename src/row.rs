@@ -253,11 +253,14 @@ primitive_row_type!(String, "String");
 primitive_row_type!(crate::types::Uuid, "UUID");
 primitive_row_type!(u8, "UInt8");
 
-impl<T: PrimitiveRow> Row for Box<[T]> {
+impl<T: Row> Row for Box<[T]> {
     fn columns(name: &'static str) -> Vec<Column> {
+        let c = T::columns(name);
+        assert_eq!(1, c.len());
+        let t = c.into_iter().map(|c| c.column_type).next().unwrap();
         vec![Column {
             name,
-            column_type: format!("Array({})", T::COLUMN_TYPE),
+            column_type: format!("Array({t})"),
         }]
     }
     fn read(buf: &mut Bytes) -> Result<Self, Error> {
