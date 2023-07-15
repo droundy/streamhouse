@@ -1,164 +1,9 @@
 //! Wrappers for clickhouse column types
 
-use std::collections::BTreeMap;
-
 use crate::Column;
 
-use crate::row::PrimitiveRow;
-use crate::{Error, Row};
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, PartialOrd, Ord)]
-pub enum ColumnType {
-    Bool,
-    UInt8,
-    UInt16,
-    UInt32,
-    UInt64,
-    UInt128,
-    Int8,
-    Int16,
-    Int32,
-    Int64,
-    Int128,
-    Float32,
-    Float64,
-    String,
-    IPv4,
-    IPv6,
-    FixedString(usize),
-    Array(&'static ColumnType),
-    Map(&'static ColumnType, &'static ColumnType),
-    LowCardinality(&'static ColumnType),
-    DateTime,
-    UUID,
-    Nullable(&'static ColumnType),
-    Enum8(&'static [(&'static str, u8)]),
-}
-
-impl ColumnType {
-    pub fn parse(bytes: &[u8]) -> Result<&'static Self, Error> {
-        match bytes {
-            b"Bool" => Ok(&Self::Bool),
-
-            b"UInt8" => Ok(&Self::UInt8),
-            b"UInt16" => Ok(&Self::UInt16),
-            b"UInt32" => Ok(&Self::UInt32),
-            b"UInt64" => Ok(&Self::UInt64),
-            b"UInt128" => Ok(&Self::UInt128),
-
-            b"Int8" => Ok(&Self::Int8),
-            b"Int16" => Ok(&Self::Int16),
-            b"Int32" => Ok(&Self::Int32),
-            b"Int64" => Ok(&Self::Int64),
-            b"Int128" => Ok(&Self::Int128),
-
-            b"Float32" => Ok(&Self::Float32),
-            b"Float64" => Ok(&Self::Float64),
-
-            b"IPv4" => Ok(&Self::IPv4),
-            b"IPv6" => Ok(&Self::IPv6),
-
-            b"String" => Ok(&Self::String),
-            b"DateTime" => Ok(&Self::DateTime),
-            b"UUID" => Ok(&Self::UUID),
-            _ => {
-                if bytes.starts_with(b"FixedString(") && bytes.last() == Some(&b')') {
-                    let mut len = 0;
-                    for b in &bytes[b"FixedString(".len()..bytes.len() - 1] {
-                        len += (*b - b'0') as usize;
-                    }
-                    static FIXED_STRINGS: std::sync::Mutex<Vec<&'static ColumnType>> =
-                        std::sync::Mutex::new(Vec::new());
-                    let mut fixed = FIXED_STRINGS.lock().unwrap();
-                    let mut fixed_len = fixed.len();
-                    while len >= fixed_len {
-                        fixed.push(Box::leak(Box::new(Self::FixedString(fixed_len))));
-                        fixed_len += 1;
-                    }
-                    Ok(fixed[len])
-                } else if bytes.starts_with(b"LowCardinality(") && bytes.last() == Some(&b')') {
-                    let sub_bytes = &bytes[b"LowCardinality(".len()..bytes.len() - 1];
-                    static MAP: std::sync::Mutex<BTreeMap<ColumnType, &'static ColumnType>> =
-                        std::sync::Mutex::new(BTreeMap::new());
-                    let mut map = MAP.lock().unwrap();
-                    let sub_column = Self::parse(sub_bytes)?;
-                    if let Some(v) = map.get(sub_column) {
-                        Ok(v)
-                    } else {
-                        map.insert(
-                            *sub_column,
-                            Box::leak(Box::new(Self::LowCardinality(sub_column))),
-                        );
-                        Ok(map[sub_column])
-                    }
-                } else if bytes.starts_with(b"Array(") && bytes.last() == Some(&b')') {
-                    let sub_bytes = &bytes[b"Array(".len()..bytes.len() - 1];
-                    static MAP: std::sync::Mutex<BTreeMap<ColumnType, &'static ColumnType>> =
-                        std::sync::Mutex::new(BTreeMap::new());
-                    let mut map = MAP.lock().unwrap();
-                    let sub_column = Self::parse(sub_bytes)?;
-                    if let Some(v) = map.get(sub_column) {
-                        Ok(v)
-                    } else {
-                        map.insert(*sub_column, Box::leak(Box::new(Self::Array(sub_column))));
-                        Ok(map[sub_column])
-                    }
-                } else if bytes.starts_with(b"Enum8(") && bytes.last() == Some(&b')') {
-                    let sub_bytes = &bytes[b"Enum8(".len()..bytes.len() - 1];
-                    static MAP: std::sync::Mutex<BTreeMap<ColumnType, &'static ColumnType>> =
-                        std::sync::Mutex::new(BTreeMap::new());
-                    let mut map = MAP.lock().unwrap();
-                    let sub_column = Self::parse(sub_bytes)?;
-                    if let Some(v) = map.get(sub_column) {
-                        Ok(v)
-                    } else {
-                        map.insert(*sub_column, Box::leak(Box::new(Self::Enum8(sub_column))));
-                        Ok(map[sub_column])
-                    }
-                } else if bytes.starts_with(b"Map(") && bytes.last() == Some(&b')') {
-                    let sub_bytes = &bytes[b"Map(".len()..bytes.len() - 1];
-                    let Some(i) = sub_bytes.iter().position(|&b| b == b',') else {
-                        return Err(Error::UnsupportedColumn(format!("Map should have a comma: {}", String::from_utf8_lossy(sub_bytes))))
-                    };
-                    let key_bytes = &sub_bytes[..i];
-                    let mut value_bytes = &sub_bytes[i + 1..];
-                    if value_bytes.first() == Some(&b' ') {
-                        value_bytes = &value_bytes[1..];
-                    }
-                    static MAP: std::sync::Mutex<
-                        BTreeMap<(ColumnType, ColumnType), &'static ColumnType>,
-                    > = std::sync::Mutex::new(BTreeMap::new());
-                    let mut map = MAP.lock().unwrap();
-                    let key_column = Self::parse(key_bytes)?;
-                    let value_column = Self::parse(value_bytes)?;
-                    let kv = (*key_column, *value_column);
-                    if let Some(v) = map.get(&kv) {
-                        Ok(v)
-                    } else {
-                        map.insert(kv, Box::leak(Box::new(Self::Map(key_column, value_column))));
-                        Ok(map[&kv])
-                    }
-                } else if bytes.starts_with(b"Nullable(") && bytes.last() == Some(&b')') {
-                    let sub_bytes = &bytes[b"Nullable(".len()..bytes.len() - 1];
-                    static MAP: std::sync::Mutex<BTreeMap<ColumnType, &'static ColumnType>> =
-                        std::sync::Mutex::new(BTreeMap::new());
-                    let mut map = MAP.lock().unwrap();
-                    let sub_column = Self::parse(sub_bytes)?;
-                    if let Some(v) = map.get(sub_column) {
-                        Ok(v)
-                    } else {
-                        map.insert(*sub_column, Box::leak(Box::new(Self::Nullable(sub_column))));
-                        Ok(map[sub_column])
-                    }
-                } else {
-                    Err(Error::UnsupportedColumn(
-                        String::from_utf8_lossy(bytes).into_owned(),
-                    ))
-                }
-            }
-        }
-    }
-}
+use crate::row::single_column;
+use crate::Row;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub struct DateTime(u32);
@@ -178,7 +23,7 @@ impl Row for DateTime {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: &ColumnType::DateTime,
+            column_type: "DateTime".to_string(),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -193,7 +38,7 @@ impl Row for std::net::Ipv4Addr {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: &ColumnType::IPv4,
+            column_type: "IPv4".to_string(),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -209,7 +54,7 @@ impl Row for std::net::Ipv6Addr {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: &ColumnType::IPv6,
+            column_type: "IPv6".to_string(),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -240,7 +85,7 @@ impl Row for Uuid {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: &ColumnType::UUID,
+            column_type: "UUID".to_string(),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -267,11 +112,11 @@ impl<T> std::ops::Deref for LowCardinality<T> {
     }
 }
 
-impl<T: PrimitiveRow> Row for LowCardinality<T> {
+impl<T: Row> Row for LowCardinality<T> {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: &ColumnType::LowCardinality(T::COLUMN_TYPE),
+            column_type: format!("LowCardinality({})", single_column::<T>()),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -282,13 +127,11 @@ impl<T: PrimitiveRow> Row for LowCardinality<T> {
     }
 }
 
-impl<K: PrimitiveRow + std::hash::Hash + Eq, V: PrimitiveRow> Row
-    for std::collections::HashMap<K, V>
-{
+impl<K: Row + std::hash::Hash + Eq, V: Row> Row for std::collections::HashMap<K, V> {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: &ColumnType::Map(K::COLUMN_TYPE, V::COLUMN_TYPE),
+            column_type: format!("Map({}, {})", single_column::<K>(), single_column::<V>()),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {
@@ -309,11 +152,11 @@ impl<K: PrimitiveRow + std::hash::Hash + Eq, V: PrimitiveRow> Row
     }
 }
 
-impl<K: PrimitiveRow + Ord + Eq, V: PrimitiveRow> Row for std::collections::BTreeMap<K, V> {
+impl<K: Row + Ord + Eq, V: Row> Row for std::collections::BTreeMap<K, V> {
     fn columns(name: &'static str) -> Vec<Column> {
         vec![Column {
             name,
-            column_type: &ColumnType::Map(K::COLUMN_TYPE, V::COLUMN_TYPE),
+            column_type: format!("Map({}, {})", single_column::<K>(), single_column::<V>()),
         }]
     }
     fn read(buf: &mut crate::row::Bytes) -> Result<Self, crate::Error> {

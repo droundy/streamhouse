@@ -35,6 +35,8 @@ async fn fetch_all() {
             bool Bool,
             null_string Nullable(String),
             null_u32 Nullable(UInt32),
+            tuple Tuple(Int8, Int32),
+            triple Tuple(UUID, IPv4, IPv6),
             mappy Map(String,UInt64),
             bmappy Map(String,String),
             greeting Enum('hello' = 1, 'goodbye' = 2, 'adios' = 3)
@@ -77,6 +79,12 @@ async fn fetch_all() {
         bool: bool,
         null_string: Option<String>,
         null_u32: Option<u32>,
+        tuple: (i8, i32),
+        triple: (
+            streamhouse::types::Uuid,
+            std::net::Ipv4Addr,
+            std::net::Ipv6Addr,
+        ),
         mappy: std::collections::HashMap<String, u64>,
         bmappy: std::collections::BTreeMap<String, Vec<u8>>,
         greeting: Greeting,
@@ -122,6 +130,12 @@ async fn fetch_all() {
             .map(|s| (s.to_string(), s.to_ascii_lowercase().as_bytes().to_vec()))
             .collect(),
         greeting: Greeting::Hello,
+        tuple: (3, 137),
+        triple: (
+            streamhouse::types::Uuid::from([7; 16]),
+            std::net::Ipv4Addr::new(127, 0, 0, 1),
+            std::net::Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff),
+        ),
     }];
 
     client.insert("test", rows.clone()).await.unwrap();
