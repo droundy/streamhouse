@@ -302,6 +302,32 @@ impl<T: PrimitiveRow> Row for Option<T> {
     }
 }
 
+impl<T1: Row, T2: Row> Row for (T1, T2) {
+    fn columns(name: &'static str) -> Vec<Column> {
+        let c1 = T1::columns(name);
+        let c2 = T2::columns(name);
+        let types = c1
+            .into_iter()
+            .map(|c| c.column_type)
+            .chain(c2.into_iter().map(|c| c.column_type))
+            .collect::<Vec<_>>()
+            .join(", ");
+        vec![Column {
+            name,
+            column_type: format!("Tuple({})", types),
+        }]
+    }
+    fn read(buf: &mut Bytes) -> Result<Self, Error> {
+        let v1 = T1::read(buf)?;
+        let v2 = T2::read(buf)?;
+        Ok((v1, v2))
+    }
+    fn write(&self, buf: &mut impl WriteRowBinary) -> Result<(), Error> {
+        self.0.write(buf)?;
+        self.1.write(buf)
+    }
+}
+
 /// Trait for types that can be represented in clickhouse as another type.
 ///
 /// # Example
