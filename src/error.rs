@@ -1,7 +1,5 @@
 use std::error::Error as StdError;
 
-use crate::types::ColumnType;
-
 /// Represents all possible errors.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -25,10 +23,10 @@ pub enum Error {
     BadResponse(String),
     #[error("Unsupported column type: {0}")]
     UnsupportedColumn(String),
-    #[error("Column types mismatch: {schema:?} vs {row:?}")]
+    #[error("Column types mismatch: [{}] vs [{}]", show_types(&schema), show_types(&row))]
     WrongColumnTypes {
-        schema: Vec<ColumnType>,
-        row: Vec<ColumnType>,
+        schema: Vec<String>,
+        row: Vec<String>,
     },
     #[error("Column names mismatch: {schema:?} vs {row:?}")]
     WrongColumnNames {
@@ -43,6 +41,10 @@ pub enum Error {
     #[error("internal error: too small buffer, need another {0} bytes")]
     #[doc(hidden)]
     TooSmallBuffer(usize),
+}
+
+fn show_types(t: &[String]) -> String {
+    t.join(", ")
 }
 
 impl Error {

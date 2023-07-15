@@ -1,4 +1,4 @@
-use crate::{row::Bytes, ColumnType, Error, Row};
+use crate::{row::Bytes, Error, Row};
 use futures_util::stream::TryStreamExt;
 
 pub(crate) struct Stream<R: Row> {
@@ -101,14 +101,13 @@ impl<R: Row> Stream<R> {
             });
         }
 
-        let mut column_types: Vec<ColumnType> = Vec::new();
+        let mut column_types: Vec<String> = Vec::new();
         for _ in 0..column_names.len() {
-            let s: Vec<u8> = self.read().await?;
-            column_types.push(*ColumnType::parse(&s)?);
+            column_types.push(self.read().await?);
         }
         let types = R::columns("")
-            .iter()
-            .map(|c| *c.column_type)
+            .into_iter()
+            .map(|c| c.column_type)
             .collect::<Vec<_>>();
         if types != column_types {
             return Err(Error::WrongColumnTypes {

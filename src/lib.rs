@@ -10,12 +10,10 @@ pub mod types;
 pub(crate) mod row;
 pub(crate) use row::{Column, WriteRowBinary};
 pub use row::{Row, RowAs};
-pub(crate) use types::ColumnType;
 
 /// Types that are used internally in `#[derive(Row)]`
 pub mod internal {
     pub use crate::row::{Bytes, Column, PrimitiveRow, WriteRowBinary};
-    pub use crate::types::ColumnType;
 }
 
 /// Derive macro for the [`Row`] trait

@@ -64,8 +64,8 @@ impl Client {
             }
             n.to_string().write(&mut body_bytes)?;
         }
-        for t in columns.iter().map(|c| c.column_type) {
-            format!("{t:?}").write(&mut body_bytes)?;
+        for t in columns.iter().map(|c| &c.column_type) {
+            t.write(&mut body_bytes)?;
         }
         for r in rows {
             r.borrow().write(&mut body_bytes)?;
@@ -161,8 +161,8 @@ impl<R: Row + 'static> RowReader<R> {
             }
             n.to_string().write(&mut buffer)?;
         }
-        for t in columns.iter().map(|c| c.column_type) {
-            format!("{t:?}").write(&mut buffer)?;
+        for t in columns.into_iter().map(|c| c.column_type) {
+            t.write(&mut buffer)?;
         }
         Ok(Self {
             rows: Box::pin(rows.ready_chunks(MAX_ROWS)),
