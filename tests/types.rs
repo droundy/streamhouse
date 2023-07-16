@@ -39,7 +39,7 @@ async fn fetch_all() {
             triple Tuple(UUID, IPv4, IPv6),
             mappy Map(String,UInt64),
             bmappy Map(String,String),
-            greeting Enum('hello' = 1, 'goodbye' = 2, 'adios' = 3)
+            greeting Enum('Hello' = 1, 'Goodbye' = 2, 'Adios' = 3)
        ) Engine=MergeTree
            ORDER BY (f32);",
         )

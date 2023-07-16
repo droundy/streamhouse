@@ -1,6 +1,6 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{Data, DataEnum, DataStruct, Fields, Type};
+use syn::{Data, DataEnum, DataStruct, Expr, ExprLit, Fields, Lit, Type};
 
 pub(crate) enum RowStruct {
     Named {
@@ -15,7 +15,7 @@ pub(crate) enum RowStruct {
     Enum {
         name: Ident,
         variants: Vec<Ident>,
-        values: Vec<u8>,
+        values: Vec<i8>,
     },
 }
 
@@ -45,8 +45,29 @@ impl RowStruct {
                 }
             }
             syn::Data::Enum(DataEnum { variants, .. }) => {
-                let variants = Vec::new();
-                let values = Vec::new();
+                let v = variants.iter().cloned().collect::<Vec<_>>();
+                let variants = v.iter().map(|v| v.ident.clone()).collect::<Vec<_>>();
+                let mut values = Vec::new();
+                let mut last_value = 0;
+                for variant in v {
+                    if let Some((
+                        _,
+                        Expr::Lit(ExprLit {
+                            lit: Lit::Int(discriminant),
+                            ..
+                        }),
+                    )) = variant.discriminant
+                    {
+                        let disc = discriminant
+                            .base10_parse::<i8>()
+                            .expect("Invalid discriminant");
+                        values.push(disc);
+                        last_value = disc;
+                    } else {
+                        values.push(last_value + 1);
+                        last_value += 1;
+                    }
+                }
                 RowStruct::Enum {
                     name,
                     variants,
@@ -116,24 +137,22 @@ impl ToTokens for RowStruct {
                 variants,
                 values,
             } => {
-                let variants_strs = variants
+                let variants_str = variants
                     .iter()
-                    .map(|i| i.to_string().to_lowercase())
-                    .collect::<Vec<_>>();
-                let clickhousetype = "hello".to_string();
+                    .map(|i| i.to_string())
+                    .zip(values)
+                    .map(|(v, val)| format!("'{v}' = {val}"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let clickhouse_type = format!("Enum8({variants_str})");
                 tokens.extend(
                     [quote! {
                         impl ::streamhouse::Row for #name {
                             fn columns(parent: &'static str) -> Vec<::streamhouse::internal::Column> {
-                                vec![::streamhouse::internal::Column {
-                                    name: parent,
-                                    column_type: &::streamhouse::internal::ColumnType::Enum8(&[
-                                        #((#variants_strs, #values),)*
-                                    ])
-                                }] // FIXME
+                                vec![::streamhouse::internal::Column::new(parent, #clickhouse_type)]
                             }
                             fn read(buf: &mut ::streamhouse::internal::Bytes) -> Result<Self, ::streamhouse::Error> {
-                                let x: u8 = buf.read()?;
+                                let x: i8 = buf.read()?;
                                 match x {
                                     #(
                                         #values => Ok(Self::#variants),
@@ -142,7 +161,11 @@ impl ToTokens for RowStruct {
                                 }
                             }
                             fn write(&self, buf: &mut impl ::streamhouse::internal::WriteRowBinary) -> Result<(), ::streamhouse::Error> {
-                                ::streamhouse::Row::write(&(*self as u8), buf)
+                                match self {
+                                    #(
+                                        Self::#variants => ::streamhouse::Row::write(&(#values as i8), buf),
+                                    )*
+                                }
                             }
                         }
                     }]
