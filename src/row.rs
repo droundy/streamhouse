@@ -81,6 +81,14 @@ pub struct Column {
     pub(crate) name: &'static str,
     pub(crate) column_type: String,
 }
+impl Column {
+    pub fn new(name: &'static str, column_type: &'static str) -> Self {
+        Column {
+            name,
+            column_type: column_type.to_string(),
+        }
+    }
+}
 
 /// A type that is *either* a column type *or* a full clickhouse row.
 ///

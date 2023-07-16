@@ -35,15 +35,23 @@ async fn fetch_all() {
             bool Bool,
             null_string Nullable(String),
             null_u32 Nullable(UInt32),
-            tuple Tuple(Int8, Int32),
-            triple Tuple(UUID, IPv4, IPv6),
+            tuple Tuple(Enum('Hello' = 1, 'Goodbye' = 2, 'Adios' = 3), Int32),
+            triple Tuple(UUID, IPv4, Enum('Hello' = 1, 'Goodbye' = 2, 'Adios' = 3)),
             mappy Map(String,UInt64),
-            bmappy Map(String,String)
+            bmappy Map(String,String),
+            greeting Enum('Hello' = 1, 'Goodbye' = 2, 'Adios' = 3)
        ) Engine=MergeTree
            ORDER BY (f32);",
         )
         .await
         .unwrap();
+
+    #[derive(Row, PartialEq, Debug, Clone, Copy)]
+    enum Greeting {
+        Hello = 1,
+        Goodbye = 2,
+        Adios,
+    }
 
     #[derive(Row, PartialEq, Debug, Clone)]
     struct AllTypes {
@@ -71,14 +79,11 @@ async fn fetch_all() {
         bool: bool,
         null_string: Option<String>,
         null_u32: Option<u32>,
-        tuple: (i8, i32),
-        triple: (
-            streamhouse::types::Uuid,
-            std::net::Ipv4Addr,
-            std::net::Ipv6Addr,
-        ),
+        tuple: (Greeting, i32),
+        triple: (streamhouse::types::Uuid, std::net::Ipv4Addr, Greeting),
         mappy: std::collections::HashMap<String, u64>,
         bmappy: std::collections::BTreeMap<String, Vec<u8>>,
+        greeting: Greeting,
     }
     let rows = vec![AllTypes {
         f32: 137.0,
@@ -120,11 +125,12 @@ async fn fetch_all() {
             .iter()
             .map(|s| (s.to_string(), s.to_ascii_lowercase().as_bytes().to_vec()))
             .collect(),
-        tuple: (3, 137),
+        greeting: Greeting::Adios,
+        tuple: (Greeting::Goodbye, 137),
         triple: (
             streamhouse::types::Uuid::from([7; 16]),
             std::net::Ipv4Addr::new(127, 0, 0, 1),
-            std::net::Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff),
+            Greeting::Hello,
         ),
     }];
 

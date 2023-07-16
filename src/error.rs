@@ -18,7 +18,7 @@ pub enum Error {
     #[error("`deserialize_any` is not supported")]
     NotEnoughData,
     #[error("tag for enum is not valid")]
-    InvalidTagEncoding(usize),
+    InvalidTagEncoding(i8),
     #[error("bad response: {0}")]
     BadResponse(String),
     #[error("Unsupported column type: {0}")]
