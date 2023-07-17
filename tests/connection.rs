@@ -6,7 +6,7 @@ use streamhouse_derive::Row;
 #[named]
 #[tokio::test]
 async fn has_connection() {
-    let client = common::prepare_database!();
+    let client = common::prepare_database!().build();
 
     let rows = vec!["COLUMNS", "SCHEMATA", "TABLES", "VIEWS"];
 
@@ -35,7 +35,7 @@ async fn has_connection() {
 #[named]
 #[tokio::test]
 async fn create_table() {
-    let client = common::prepare_database!();
+    let client = common::prepare_database!().build();
 
     assert!(client
         .execute(
@@ -125,7 +125,7 @@ async fn create_table() {
 #[named]
 #[tokio::test]
 async fn one_string_column() {
-    let client = common::prepare_database!();
+    let client = common::prepare_database!().build();
 
     client
         .execute(

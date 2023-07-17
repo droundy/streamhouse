@@ -47,7 +47,15 @@ mod common {
 
             client = client.with_database(&database);
             crate::ClickhouseClients {
-                streamhouse: vec![("streamhouse", client.build())],
+                streamhouse: vec![
+                    ("streamhouse", client.clone().build()),
+                    (
+                        "streamhouse-lz4",
+                        client
+                            .with_compression(streamhouse::Compression::Lz4)
+                            .build(),
+                    ),
+                ],
                 clickhouse: vec![
                     ("clickhouse", clickhouse_client.clone()),
                     (

@@ -14,6 +14,7 @@ keywords = ["clickhouse", "database", "driver", "hyper", "tokio"]
 
 [dependencies]
 hyper = {version = "0.14.26", features = ["client", "http2", "http1", "tcp", "stream"]}
+lz4_flex = { git = "https://github.com/droundy/lz4_flex", branch = "async-decompress" }
 thiserror = "1.0.40"
 streamhouse-derive = { version = "0.0.1", path = "streamhouse-derive" }
 futures-util = "0.3.28"

@@ -7,7 +7,7 @@ use streamhouse_derive::Row;
 #[named]
 #[tokio::test]
 async fn stream_rows() {
-    let client = common::prepare_database!();
+    let client = common::prepare_database!().build();
 
     client
         .execute(

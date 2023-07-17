@@ -19,6 +19,13 @@ pub mod internal {
 /// Derive macro for the [`Row`] trait
 pub use streamhouse_derive::Row;
 
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Compression {
+    #[default]
+    None,
+    Lz4,
+}
+
 /// A client for accessing clickhouse.
 ///
 /// Note that cloning the `Client` is reasonably inexpensive, and internally it
@@ -29,6 +36,7 @@ pub struct Client {
     user: Option<String>,
     password: Option<String>,
     database: Option<String>,
+    compression: Compression,
 }
 
 impl Client {
@@ -45,6 +53,7 @@ pub struct ClientBuilder {
     user: Option<String>,
     password: Option<String>,
     database: Option<String>,
+    compression: Compression,
 }
 
 impl ClientBuilder {
@@ -72,13 +81,27 @@ impl ClientBuilder {
             ..self
         }
     }
+    pub fn with_compression(self, compression: Compression) -> Self {
+        ClientBuilder {
+            compression,
+            ..self
+        }
+    }
     pub fn build(self) -> Client {
+        let url = self.url.expect("Need to specify url for Client");
+        let url = if self.compression != Compression::None {
+            format!("{url}?compress=1")
+            // format!("{url}?enable_http_compression=1")
+        } else {
+            url
+        };
         Client {
             client: self.client.build_http(),
-            url: self.url.expect("Need to specify url for Client"),
+            url,
             user: self.user,
             password: self.password,
             database: self.database,
+            compression: self.compression,
         }
     }
 }

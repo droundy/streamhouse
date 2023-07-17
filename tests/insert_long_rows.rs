@@ -6,7 +6,7 @@ use streamhouse_derive::Row;
 #[named]
 #[tokio::test]
 async fn insert_long() {
-    let client = common::prepare_database!();
+    let client = common::prepare_database!().build();
 
     client
         .execute(

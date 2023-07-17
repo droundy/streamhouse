@@ -3,10 +3,10 @@ use std::pin::Pin;
 
 use crate::row::WriteRowBinary;
 use crate::stream::Stream;
-use crate::{Client, Error, Row};
+use crate::{Client, Compression, Error, Row};
 use futures_util::stream::try_unfold;
 use futures_util::{StreamExt, TryStreamExt};
-use hyper::header::CONTENT_LENGTH;
+use hyper::header::{ACCEPT_ENCODING, CONTENT_ENCODING, CONTENT_LENGTH};
 
 impl Client {
     pub async fn query_fetch_all<R: Row>(&self, query: &str) -> Result<Vec<R>, Error> {
@@ -21,6 +21,9 @@ impl Client {
 
         let query = format!("{query} FORMAT RowBinaryWithNamesAndTypes");
         builder = builder.header(CONTENT_LENGTH, query.len().to_string());
+        if self.compression == Compression::Lz4 {
+            builder = builder.header(ACCEPT_ENCODING, "lz4");
+        }
         let request = builder
             .body(hyper::Body::from(query.to_string()))
             .map_err(|err| Error::InvalidParams(Box::new(err)))?;
@@ -28,8 +31,27 @@ impl Client {
         if response.status() != hyper::StatusCode::OK {
             return Err(Error::from_bad_response(response).await);
         }
-        let body = response.into_body();
-        Ok(Stream::new(body).await?.into_stream())
+        let compression = response.headers().get(CONTENT_ENCODING).cloned();
+        println!("headers are {:#?}", response.headers());
+        println!("compression is {compression:?}");
+        let mut body = response.into_body();
+        if self.compression == Compression::Lz4 {
+            let mut decoder = lz4_flex::frame::Decoder::new();
+            while let Some(bytes) = body.next().await {
+                decoder.push(&bytes?);
+            }
+            let mut out = Vec::new();
+            loop {
+                println!("Reading a block");
+                match decoder.next_block() {
+                    Ok(chunk) => out.extend(chunk),
+                    Err(e) => panic!("Error decoding: {e:#}"),
+                }
+            }
+            Ok(Stream::new(hyper::Body::from(out)).await?.into_stream())
+        } else {
+            Ok(Stream::new(body).await?.into_stream())
+        }
     }
 
     pub async fn execute(&self, query: &str) -> Result<(), Error> {

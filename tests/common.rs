@@ -9,11 +9,11 @@ macro_rules! prepare_database {
 pub(crate) use {::function_name::named, prepare_database};
 pub(crate) mod _priv {
     const HOST: &str = "localhost:8124";
-    use streamhouse::Client;
+    use streamhouse::{Client, ClientBuilder};
 
-    pub async fn prepare_database(file_path: &str, fn_name: &str) -> Client {
+    pub async fn prepare_database(file_path: &str, fn_name: &str) -> ClientBuilder {
         // let name = make_db_name(file_path, fn_name);
-        let mut client = Client::builder().with_url(format!("http://{HOST}"));
+        let client = Client::builder().with_url(format!("http://{HOST}"));
         let file_path = &file_path[..file_path.len() - 3];
         let file_path = file_path.replace("tests/", "");
         let database = format!("{file_path}__{fn_name}");
@@ -28,7 +28,6 @@ pub(crate) mod _priv {
             .await
             .unwrap();
 
-        client = client.with_database(database);
-        client.build()
+        client.with_database(database)
     }
 }
